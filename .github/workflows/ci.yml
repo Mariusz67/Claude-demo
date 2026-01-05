@@ -1,0 +1,87 @@
+name: HTML Quality Gate
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-html:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Check HTML file exists
+        run: |
+          if [ -f "index.html" ]; then
+            echo "✅ index.html found"
+          else
+            echo "❌ index.html not found"
+            exit 1
+          fi
+
+      - name: Validate HTML structure
+        run: |
+          echo "Checking HTML structure..."
+          if grep -q "<html" index.html && grep -q "</html>" index.html; then
+            echo "✅ HTML tags present"
+          else
+            echo "❌ Missing HTML tags"
+            exit 1
+          fi
+
+          if grep -q "<head>" index.html && grep -q "</head>" index.html; then
+            echo "✅ HEAD tags present"
+          else
+            echo "❌ Missing HEAD tags"
+            exit 1
+          fi
+
+          if grep -q "<body>" index.html && grep -q "</body>" index.html; then
+            echo "✅ BODY tags present"
+          else
+            echo "❌ Missing BODY tags"
+            exit 1
+          fi
+
+      - name: Check required meta tags
+        run: |
+          echo "Checking required meta tags..."
+          if grep -q '<meta charset="UTF-8">' index.html; then
+            echo "✅ UTF-8 charset declared"
+          else
+            echo "❌ Missing UTF-8 charset declaration"
+            exit 1
+          fi
+
+          if grep -q '<meta name="viewport"' index.html; then
+            echo "✅ Viewport meta tag present"
+          else
+            echo "❌ Missing viewport meta tag"
+            exit 1
+          fi
+
+      - name: Check title tag
+        run: |
+          echo "Checking title tag..."
+          if grep -q "<title>" index.html && grep -q "</title>" index.html; then
+            echo "✅ Title tag present"
+          else
+            echo "❌ Missing title tag"
+            exit 1
+          fi
+
+      - name: Validate HTML with W3C validator
+        uses: Cyb3r-Jak3/html5validator-action@v7.2.0
+        with:
+          root: .
+          css: false
+
+      - name: All checks passed
+        run: |
+          echo "================================"
+          echo "✅ All HTML quality checks passed!"
+          echo "================================"
