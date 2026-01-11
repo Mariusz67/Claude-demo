@@ -211,8 +211,10 @@
     </div>
 
     <script>
-        // Configuration
-        const API_URL = 'http://localhost:8081/api/users';
+        // Configuration - works both locally and on Railway
+        const API_URL = window.location.hostname === 'localhost'
+            ? 'http://localhost:8081/api/users'
+            : 'https://claude-demo-production.up.railway.app/api/users';  // Replace with your Railway backend URL
 
         async function loadUsers() {
             const statusEl = document.getElementById('status');
