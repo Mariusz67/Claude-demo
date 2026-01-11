@@ -18,7 +18,7 @@ public class DatabaseConfig {
         // If DATABASE_URL exists and doesn't start with jdbc:, convert it
         if (databaseUrl != null && !databaseUrl.startsWith("jdbc:")) {
             // Railway format: postgresql://user:pass@host:port/dbname
-            // Convert to: jdbc:postgresql://host:port/dbname
+            // Convert to: jdbc:postgresql://user:pass@host:port/dbname
             databaseUrl = "jdbc:" + databaseUrl;
         }
 
@@ -27,19 +27,9 @@ public class DatabaseConfig {
             databaseUrl = "jdbc:postgresql://localhost:5432/railway";
         }
 
+        // DataSourceBuilder will automatically parse username and password from the JDBC URL
         DataSourceBuilder<?> dataSourceBuilder = DataSourceBuilder.create();
         dataSourceBuilder.url(databaseUrl);
-
-        // Set username and password from environment if DATABASE_URL doesn't contain them
-        String username = System.getenv("DATABASE_USERNAME");
-        String password = System.getenv("DATABASE_PASSWORD");
-
-        if (username != null) {
-            dataSourceBuilder.username(username);
-        }
-        if (password != null) {
-            dataSourceBuilder.password(password);
-        }
 
         return dataSourceBuilder.build();
     }
