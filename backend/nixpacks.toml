@@ -1,8 +1,8 @@
 [phases.setup]
-nixPkgs = ['...', 'maven']
+nixPkgs = ['jdk17', 'maven']
 
 [phases.build]
-cmds = ['mvn clean package -DskipTests']
+cmds = ['mvn clean package']
 
 [start]
 cmd = 'java -jar target/demo-0.0.1-SNAPSHOT.jar'
