@@ -179,8 +179,8 @@
 
         <div class="users-section">
             <h2>User Management Panel</h2>
-            <button class="refresh-btn" onclick="loadUsers()">🔄 Refresh Users</button>
-            <span id="status" class="status loading">Loading...</span>
+            <button class="refresh-btn" onclick="loadUsers()">🔄 Load Users</button>
+            <span id="status" class="status" style="display: none;">Ready</span>
 
             <div id="userTableContainer">
                 <table id="userTable" style="display: none;">
@@ -214,9 +214,6 @@
         // Configuration
         const API_URL = 'http://localhost:8081/api/users';
 
-        // Load users when page loads
-        document.addEventListener('DOMContentLoaded', loadUsers);
-
         async function loadUsers() {
             const statusEl = document.getElementById('status');
             const tableEl = document.getElementById('userTable');
@@ -224,6 +221,7 @@
             const tableBodyEl = document.getElementById('userTableBody');
 
             // Set loading state
+            statusEl.style.display = 'inline-block';
             statusEl.textContent = 'Loading...';
             statusEl.className = 'status loading';
 
