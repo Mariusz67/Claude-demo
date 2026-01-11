@@ -19,7 +19,7 @@ public class UserController {
     @Autowired
     private UserRepository userRepository; //bean injection
 
-    // GET all users
+    // GET all users 
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers() {
         List<User> users = new ArrayList<>();
