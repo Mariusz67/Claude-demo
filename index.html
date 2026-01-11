@@ -216,6 +216,9 @@
             ? 'http://localhost:8081/api/users'
             : 'https://claude-demo-production.up.railway.app/api/users';  // Replace with your Railway backend URL
 
+        // Extract base URL for display
+        const BACKEND_DISPLAY = API_URL.replace('/api/users', '').replace('http://', '').replace('https://', '');
+
         async function loadUsers() {
             const statusEl = document.getElementById('status');
             const tableEl = document.getElementById('userTable');
@@ -271,6 +274,15 @@
                 emptyStateEl.style.display = 'none';
             }
         }
+
+        // Update footer with actual backend URL
+        document.addEventListener('DOMContentLoaded', () => {
+            const footer = document.querySelector('footer p');
+            footer.textContent = `Connected to Railway PostgreSQL Database | Backend API: ${BACKEND_DISPLAY}`;
+        });
+
+        // Load users when page loads
+        loadUsers();
     </script>
 </body>
 </html>
