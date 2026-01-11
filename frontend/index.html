@@ -179,6 +179,7 @@
 
         <div class="users-section">
             <h2>User Management Panel</h2>
+            <button class="refresh-btn" onclick="checkHealth()">❤️ Health Check</button>
             <button class="refresh-btn" onclick="loadUsers()">🔄 Load Users</button>
             <span id="status" class="status" style="display: none;">Ready</span>
 
@@ -212,12 +213,39 @@
 
     <script>
         // Configuration - works both locally and on Railway
-        const API_URL = window.location.hostname === 'localhost'
-            ? 'http://localhost:8081/api/users'
-            : 'https://pretty-illumination-production.up.railway.app/api/users';
+        const BASE_URL = window.location.hostname === 'localhost'
+            ? 'http://localhost:8081'
+            : 'https://pretty-illumination-production.up.railway.app';
+
+        const API_URL = BASE_URL + '/api/users';
+        const HEALTH_URL = BASE_URL + '/api/users/health';
 
         // Extract base URL for display
-        const BACKEND_DISPLAY = API_URL.replace('/api/users', '').replace('http://', '').replace('https://', '');
+        const BACKEND_DISPLAY = BASE_URL.replace('http://', '').replace('https://', '');
+
+        async function checkHealth() {
+            const statusEl = document.getElementById('status');
+
+            statusEl.style.display = 'inline-block';
+            statusEl.textContent = 'Checking backend health...';
+            statusEl.className = 'status loading';
+
+            try {
+                const response = await fetch(HEALTH_URL);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const message = await response.text();
+                statusEl.textContent = `✓ ${message}`;
+                statusEl.className = 'status success';
+            } catch (error) {
+                console.error('Health check failed:', error);
+                statusEl.textContent = `✗ Backend unreachable: ${error.message}`;
+                statusEl.className = 'status error';
+            }
+        }
 
         async function loadUsers() {
             const statusEl = document.getElementById('status');
@@ -281,8 +309,8 @@
             footer.textContent = `Connected to Railway PostgreSQL Database | Backend API: ${BACKEND_DISPLAY}`;
         });
 
-        // Load users when page loads
-        loadUsers();
+        // Check health when page loads
+        checkHealth();
     </script>
 </body>
 </html>
