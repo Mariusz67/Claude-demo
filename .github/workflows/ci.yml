@@ -16,7 +16,7 @@ jobs:
 
       - name: Check HTML file exists
         run: |
-          if [ -f "index.html" ]; then
+          if [ -f "frontend/index.html" ]; then
             echo "✅ index.html found"
           else
             echo "❌ index.html not found"
@@ -26,21 +26,21 @@ jobs:
       - name: Validate HTML structure
         run: |
           echo "Checking HTML structure..."
-          if grep -q "<html" index.html && grep -q "</html>" index.html; then
+          if grep -q "<html" frontend/index.html && grep -q "</html>" frontend/index.html; then
             echo "✅ HTML tags present"
           else
             echo "❌ Missing HTML tags"
             exit 1
           fi
 
-          if grep -q "<head>" index.html && grep -q "</head>" index.html; then
+          if grep -q "<head>" frontend/index.html && grep -q "</head>" frontend/index.html; then
             echo "✅ HEAD tags present"
           else
             echo "❌ Missing HEAD tags"
             exit 1
           fi
 
-          if grep -q "<body>" index.html && grep -q "</body>" index.html; then
+          if grep -q "<body>" frontend/index.html && grep -q "</body>" frontend/index.html; then
             echo "✅ BODY tags present"
           else
             echo "❌ Missing BODY tags"
@@ -50,14 +50,14 @@ jobs:
       - name: Check required meta tags
         run: |
           echo "Checking required meta tags..."
-          if grep -q '<meta charset="UTF-8">' index.html; then
+          if grep -q '<meta charset="UTF-8">' frontend/index.html; then
             echo "✅ UTF-8 charset declared"
           else
             echo "❌ Missing UTF-8 charset declaration"
             exit 1
           fi
 
-          if grep -q '<meta name="viewport"' index.html; then
+          if grep -q '<meta name="viewport"' frontend/index.html; then
             echo "✅ Viewport meta tag present"
           else
             echo "❌ Missing viewport meta tag"
@@ -67,7 +67,7 @@ jobs:
       - name: Check title tag
         run: |
           echo "Checking title tag..."
-          if grep -q "<title>" index.html && grep -q "</title>" index.html; then
+          if grep -q "<title>" frontend/index.html && grep -q "</title>" frontend/index.html; then
             echo "✅ Title tag present"
           else
             echo "❌ Missing title tag"
@@ -77,7 +77,7 @@ jobs:
       - name: Validate HTML with W3C validator
         uses: Cyb3r-Jak3/html5validator-action@v7.2.0
         with:
-          root: .
+          root: frontend
           css: false
 
       - name: All checks passed
