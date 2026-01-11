@@ -16,13 +16,13 @@ import java.util.Optional;
 public class UserController {
 
     @Autowired
-    private UserRepository userRepository;
+    private UserRepository userRepository; //bean injection
 
     // GET all users
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers() {
         List<User> users = new ArrayList<>();
-        userRepository.findAll().forEach(users::add);
+        userRepository.findAll().forEach(users::add); //using the injected bean
         return new ResponseEntity<>(users, HttpStatus.OK);
     }
 

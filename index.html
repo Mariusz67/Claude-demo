@@ -4,10 +4,273 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Demo web page by Mariusz</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .info-section {
+            padding: 30px 40px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .info-section p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .date {
+            color: #764ba2;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .users-section {
+            padding: 40px;
+        }
+
+        .users-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .status.loading {
+            background: #ffeaa7;
+            color: #d63031;
+        }
+
+        .status.success {
+            background: #55efc4;
+            color: #00b894;
+        }
+
+        .status.error {
+            background: #fab1a0;
+            color: #d63031;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+            transition: background 0.3s;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state svg {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-bottom: 20px;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .refresh-btn:active {
+            transform: translateY(0);
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            font-size: 0.9rem;
+        }
+    </style>
 </head>
 <body>
-    <h1>Demo web page by Mariusz Puto</h1>
-    <p>This page is protected by automated quality gates!</p>
-    <p>10.01.2026</p>
+    <div class="container">
+        <header>
+            <h1>Demo web page by Mariusz Puto</h1>
+            <p>This page is protected by automated quality gates!</p>
+        </header>
+
+        <div class="info-section">
+            <p>This is a full-stack demo application built with Spring Boot backend and vanilla JavaScript frontend.</p>
+            <p class="date">Last updated: 10.01.2026</p>
+        </div>
+
+        <div class="users-section">
+            <h2>User Management Panel</h2>
+            <button class="refresh-btn" onclick="loadUsers()">🔄 Refresh Users</button>
+            <span id="status" class="status loading">Loading...</span>
+
+            <div id="userTableContainer">
+                <table id="userTable" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody">
+                    </tbody>
+                </table>
+
+                <div id="emptyState" class="empty-state" style="display: none;">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    <h3>No users found</h3>
+                    <p>The database is currently empty. Add users via the API to see them here.</p>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Connected to Railway PostgreSQL Database | Backend API: localhost:8081</p>
+        </footer>
+    </div>
+
+    <script>
+        // Configuration
+        const API_URL = 'http://localhost:8081/api/users';
+
+        // Load users when page loads
+        document.addEventListener('DOMContentLoaded', loadUsers);
+
+        async function loadUsers() {
+            const statusEl = document.getElementById('status');
+            const tableEl = document.getElementById('userTable');
+            const emptyStateEl = document.getElementById('emptyState');
+            const tableBodyEl = document.getElementById('userTableBody');
+
+            // Set loading state
+            statusEl.textContent = 'Loading...';
+            statusEl.className = 'status loading';
+
+            try {
+                const response = await fetch(API_URL);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const users = await response.json();
+
+                // Clear existing rows
+                tableBodyEl.innerHTML = '';
+
+                if (users.length === 0) {
+                    // Show empty state
+                    tableEl.style.display = 'none';
+                    emptyStateEl.style.display = 'block';
+                    statusEl.textContent = 'No users in database';
+                    statusEl.className = 'status success';
+                } else {
+                    // Show table with users
+                    tableEl.style.display = 'table';
+                    emptyStateEl.style.display = 'none';
+
+                    users.forEach(user => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${user.id}</td>
+                            <td>${user.name}</td>
+                            <td>${user.email}</td>
+                        `;
+                        tableBodyEl.appendChild(row);
+                    });
+
+                    statusEl.textContent = `✓ Loaded ${users.length} user${users.length !== 1 ? 's' : ''}`;
+                    statusEl.className = 'status success';
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+                statusEl.textContent = '✗ Error: Cannot connect to backend';
+                statusEl.className = 'status error';
+                tableEl.style.display = 'none';
+                emptyStateEl.style.display = 'none';
+            }
+        }
+    </script>
 </body>
 </html>
