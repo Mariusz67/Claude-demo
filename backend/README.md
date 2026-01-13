@@ -7,6 +7,7 @@ Spring Boot REST API with PostgreSQL
 - Java 17 or higher
 - Maven 3.6+
 - PostgreSQL database (Railway)
+- Railway account
 
 ## Setup
 
@@ -55,7 +56,7 @@ mvn clean install
 mvn spring-boot:run
 ```
 
-The application will start on `http://localhost:8080`
+The application will start on `http://localhost:8081`
 
 ## API Endpoints
 
@@ -107,9 +108,9 @@ DELETE /api/users/{id}
 
 1. Start the application
 2. Open Postman
-3. Test health endpoint: `GET http://localhost:8080/api/users/health`
-4. Create a user: `POST http://localhost:8080/api/users` with JSON body
-5. Get all users: `GET http://localhost:8080/api/users`
+3. Test health endpoint: `GET http://localhost:8081/api/users/health`
+4. Create a user: `POST http://localhost:8081/api/users` with JSON body
+5. Get all users: `GET http://localhost:8081/api/users`
 
 ## Project Structure
 
