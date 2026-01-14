@@ -8,7 +8,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -51,6 +53,9 @@ public class UserController {
             User user = userData.get();
             user.setName(userDetails.getName());
             user.setEmail(userDetails.getEmail());
+            if (userDetails.getPassword() != null && !userDetails.getPassword().isEmpty()) {
+                user.setPassword(userDetails.getPassword());
+            }
             return new ResponseEntity<>(userRepository.save(user), HttpStatus.OK);
         } else {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -62,6 +67,27 @@ public class UserController {
     public ResponseEntity<HttpStatus> deleteUser(@PathVariable Long id) {
         userRepository.deleteById(id);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+
+    // POST login user
+    @PostMapping("/login")
+    public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> credentials) {
+        String email = credentials.get("email");
+        String password = credentials.get("password");
+
+        Optional<User> user = userRepository.findByEmailAndPassword(email, password);
+
+        Map<String, Object> response = new HashMap<>();
+        if (user.isPresent()) {
+            response.put("success", true);
+            response.put("message", "Login successful");
+            response.put("user", user.get());
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } else {
+            response.put("success", false);
+            response.put("message", "Invalid email or password");
+            return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+        }
     }
 
     // Simple health check endpoint
