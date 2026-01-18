@@ -124,7 +124,7 @@
         <p class="subtitle">Demo User Management System</p>
 
         <div class="info-message">
-            Admin login only. Contact administrator for access.
+            Please login to continue.
         </div>
 
         <div id="errorMessage" class="error-message"></div>
@@ -195,17 +195,17 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    // Check if user is admin
+                    // Store login info
+                    sessionStorage.setItem('loggedIn', 'true');
+                    sessionStorage.setItem('userEmail', email);
+                    sessionStorage.setItem('userRole', data.role);
+                    sessionStorage.setItem('userName', data.user.name);
+
+                    // Redirect based on role
                     if (data.role === 'admin') {
-                        // Admin login successful
-                        sessionStorage.setItem('loggedIn', 'true');
-                        sessionStorage.setItem('userEmail', email);
-                        sessionStorage.setItem('userRole', 'admin');
                         window.location.href = 'dashboard.html';
                     } else {
-                        // User is not admin
-                        errorMessage.textContent = 'Access denied. Admin privileges required.';
-                        errorMessage.style.display = 'block';
+                        window.location.href = 'user.html';
                     }
                 } else {
                     // Login failed
@@ -222,9 +222,14 @@
             }
         }
 
-        // Check if already logged in as admin
-        if (sessionStorage.getItem('loggedIn') && sessionStorage.getItem('userRole') === 'admin') {
-            window.location.href = 'dashboard.html';
+        // Check if already logged in
+        if (sessionStorage.getItem('loggedIn')) {
+            const role = sessionStorage.getItem('userRole');
+            if (role === 'admin') {
+                window.location.href = 'dashboard.html';
+            } else {
+                window.location.href = 'user.html';
+            }
         }
     </script>
 </body>
