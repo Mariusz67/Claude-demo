@@ -340,6 +340,7 @@
                 <div class="form-group">
                     <label for="noteType">Type</label>
                     <select id="noteType" required>
+                        <option value="">-- Select type --</option>
                         <option value="note">Note</option>
                         <option value="memo">Memo</option>
                         <option value="reminder">Reminder</option>
@@ -586,7 +587,7 @@
 
         function clearForm() {
             document.getElementById('noteId').value = '';
-            document.getElementById('noteType').value = 'note';
+            document.getElementById('noteType').value = '';
             document.getElementById('noteFrequency').value = 'never';
             document.getElementById('noteText').value = '';
             document.getElementById('formTitle').textContent = 'Add New Note';
