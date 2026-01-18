@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/users")
@@ -20,6 +21,11 @@ public class UserController {
 
     @Autowired
     private UserRepository userRepository; //bean injection
+
+    // Admin password pattern: min 15 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special char
+    private static final Pattern ADMIN_PASSWORD_PATTERN = Pattern.compile(
+        "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?]).{15,}$"
+    );
 
     // GET all users 
     @GetMapping
@@ -82,12 +88,34 @@ public class UserController {
             response.put("success", true);
             response.put("message", "Login successful");
             response.put("user", user.get());
+            response.put("role", user.get().getRole());
             return new ResponseEntity<>(response, HttpStatus.OK);
         } else {
             response.put("success", false);
             response.put("message", "Invalid email or password");
             return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
         }
+    }
+
+    // POST create admin user (with strong password validation)
+    @PostMapping("/admin")
+    public ResponseEntity<Map<String, Object>> createAdmin(@RequestBody User user) {
+        Map<String, Object> response = new HashMap<>();
+
+        // Validate admin password strength
+        if (user.getPassword() == null || !ADMIN_PASSWORD_PATTERN.matcher(user.getPassword()).matches()) {
+            response.put("success", false);
+            response.put("message", "Admin password must be at least 15 characters with 1 uppercase, 1 lowercase, 1 digit, and 1 special character");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+
+        user.setRole("admin");
+        User savedUser = userRepository.save(user);
+
+        response.put("success", true);
+        response.put("message", "Admin created successfully");
+        response.put("user", savedUser);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     // Simple health check endpoint

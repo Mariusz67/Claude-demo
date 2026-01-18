@@ -124,7 +124,7 @@
         <p class="subtitle">Demo User Management System</p>
 
         <div class="info-message">
-            Test credentials: Use any email from the database with password: 1234
+            Admin login only. Contact administrator for access.
         </div>
 
         <div id="errorMessage" class="error-message"></div>
@@ -195,10 +195,18 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    // Login successful
-                    sessionStorage.setItem('loggedIn', 'true');
-                    sessionStorage.setItem('userEmail', email);
-                    window.location.href = 'dashboard.html';
+                    // Check if user is admin
+                    if (data.role === 'admin') {
+                        // Admin login successful
+                        sessionStorage.setItem('loggedIn', 'true');
+                        sessionStorage.setItem('userEmail', email);
+                        sessionStorage.setItem('userRole', 'admin');
+                        window.location.href = 'dashboard.html';
+                    } else {
+                        // User is not admin
+                        errorMessage.textContent = 'Access denied. Admin privileges required.';
+                        errorMessage.style.display = 'block';
+                    }
                 } else {
                     // Login failed
                     errorMessage.textContent = data.message || 'Invalid email or password';
@@ -214,8 +222,8 @@
             }
         }
 
-        // Check if already logged in
-        if (sessionStorage.getItem('loggedIn')) {
+        // Check if already logged in as admin
+        if (sessionStorage.getItem('loggedIn') && sessionStorage.getItem('userRole') === 'admin') {
             window.location.href = 'dashboard.html';
         }
     </script>

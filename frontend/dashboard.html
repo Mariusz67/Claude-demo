@@ -317,8 +317,9 @@
     </div>
 
     <script>
-        // Check if user is logged in
-        if (!sessionStorage.getItem('loggedIn')) {
+        // Check if user is logged in as admin
+        if (!sessionStorage.getItem('loggedIn') || sessionStorage.getItem('userRole') !== 'admin') {
+            sessionStorage.clear();
             window.location.href = 'index.html';
         }
 
@@ -334,7 +335,7 @@
         const BACKEND_DISPLAY = BASE_URL.replace('http://', '').replace('https://', '');
 
         function logout() {
-            sessionStorage.removeItem('loggedIn');
+            sessionStorage.clear();
             window.location.href = 'index.html';
         }
 
