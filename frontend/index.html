@@ -197,6 +197,7 @@
                 if (response.ok && data.success) {
                     // Store login info
                     sessionStorage.setItem('loggedIn', 'true');
+                    sessionStorage.setItem('token', data.token);
                     sessionStorage.setItem('userEmail', email);
                     sessionStorage.setItem('userRole', data.role);
                     sessionStorage.setItem('userName', data.user.name);

@@ -58,6 +58,29 @@ mvn spring-boot:run
 
 The application will start on `http://localhost:8081`
 
+### 4. Open the Frontend Locally
+
+Do NOT open `http://localhost:8081` in the browser — that is the backend API only and will return a 404 error.
+
+Instead, open the frontend HTML file directly:
+- In VS Code: open `frontend/index.html` → right-click → **Open with Live Server**
+- Or double-click `frontend/index.html` in File Explorer — it will open via `file://` in the browser
+
+The frontend JavaScript automatically detects the environment:
+- When opened via `localhost` or `file://` → calls `http://localhost:8081` (local backend)
+- When opened via Railway domain → calls the production backend URL
+
+**Architecture (local):**
+```
+Browser (file:// or Live Server)
+        ↓ fetch() API calls
+Spring Boot on localhost:8081
+        ↓ JDBC
+PostgreSQL on Railway (cloud)
+```
+
+No local PostgreSQL installation needed — the app always connects to Railway's database.
+
 ## API Endpoints
 
 ### Health Check
@@ -132,6 +155,60 @@ backend/
 │   └── test/
 ├── pom.xml
 └── README.md
+```
+
+## Restarting After Inactivity (Railway)
+
+If the app hasn't been used for a while or the subscription lapsed, follow these steps:
+
+### Railway Services Overview
+
+This project has two Railway services:
+- **`pretty-ilumination`** — Spring Boot backend (has PostgreSQL connected)
+- **`claude-demo.production`** — Frontend static site
+
+### Step 1: Check Service Status
+
+1. Go to [Railway dashboard](https://railway.app/dashboard)
+2. Open your project — you should see both services and PostgreSQL
+3. All three should show a green status indicator
+
+### Step 2: Verify PostgreSQL is Connected to Backend
+
+1. Click on the **PostgreSQL** service
+2. Go to **Connect** tab → confirm it is linked to `pretty-ilumination` (backend)
+3. If not linked, re-add the reference variable in the backend service settings
+
+### Step 3: Check Credentials (if subscription lapsed)
+
+If the subscription expired and Railway recreated PostgreSQL with new credentials:
+
+1. Click on **PostgreSQL** → **Variables** tab
+2. Copy: `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`
+3. Update your local `.env` file with the new values:
+
+```properties
+PGHOST=new_host.railway.app
+PGPORT=new_port
+PGDATABASE=railway
+PGUSER=postgres
+PGPASSWORD=new_password
+```
+
+### Step 4: Open the Correct URL
+
+- **Frontend (use this to access the app):** open the URL of `claude-demo.production`
+  - Railway Dashboard → `claude-demo.production` → **Settings** → **Domains**
+- **Backend API only:** `pretty-ilumination` URL — do NOT open this directly in the browser, it only serves `/api/*` endpoints
+
+> **Common mistake:** Opening the backend URL in the browser returns a Spring Boot `Whitelabel Error Page (404)`. This is expected — always use the frontend URL.
+
+### Step 5: Verify Everything Works
+
+1. Open the frontend URL → login page should appear
+2. Test the backend health check:
+```
+GET https://<pretty-ilumination-url>/api/users/health
 ```
 
 ## Technology Stack

@@ -2,9 +2,11 @@ package com.mariusz.demo.controller;
 
 import com.mariusz.demo.model.User;
 import com.mariusz.demo.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.mariusz.demo.security.JwtUtil;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -19,38 +21,56 @@ import java.util.regex.Pattern;
 @CrossOrigin(origins = "*")
 public class UserController {
 
-    @Autowired
-    private UserRepository userRepository; //bean injection
+    private final UserRepository userRepository;
+    private final BCryptPasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+
+    @Value("${migration.secret}")
+    private String migrationSecret;
 
     // Admin password pattern: min 15 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special char
     private static final Pattern ADMIN_PASSWORD_PATTERN = Pattern.compile(
         "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?]).{15,}$"
     );
 
-    // GET all users 
+    public UserController(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtUtil = jwtUtil;
+    }
+
+    // GET all users (admin only - enforced by SecurityConfig)
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers() {
         List<User> users = new ArrayList<>();
-        userRepository.findAll().forEach(users::add); //using the injected bean
+        userRepository.findAll().forEach(users::add);
+        users.forEach(u -> u.setPassword(null));
         return new ResponseEntity<>(users, HttpStatus.OK);
     }
 
-    // GET user by id
+    // GET user by id (admin only)
     @GetMapping("/{id}")
     public ResponseEntity<User> getUserById(@PathVariable Long id) {
         Optional<User> user = userRepository.findById(id);
-        return user.map(value -> new ResponseEntity<>(value, HttpStatus.OK))
-                   .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+        if (user.isPresent()) {
+            user.get().setPassword(null);
+            return new ResponseEntity<>(user.get(), HttpStatus.OK);
+        }
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
 
-    // POST create new user
+    // POST create new user (admin only)
     @PostMapping
     public ResponseEntity<User> createUser(@RequestBody User user) {
-        User savedUser = userRepository.save(user);
-        return new ResponseEntity<>(savedUser, HttpStatus.CREATED);
+        if (user.getPassword() != null) {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+        }
+        User saved = userRepository.save(user);
+        saved.setPassword(null);
+        return new ResponseEntity<>(saved, HttpStatus.CREATED);
     }
 
-    // PUT update user
+    // PUT update user (admin only)
     @PutMapping("/{id}")
     public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody User userDetails) {
         Optional<User> userData = userRepository.findById(id);
@@ -60,49 +80,54 @@ public class UserController {
             user.setName(userDetails.getName());
             user.setEmail(userDetails.getEmail());
             if (userDetails.getPassword() != null && !userDetails.getPassword().isEmpty()) {
-                user.setPassword(userDetails.getPassword());
+                user.setPassword(passwordEncoder.encode(userDetails.getPassword()));
             }
-            return new ResponseEntity<>(userRepository.save(user), HttpStatus.OK);
-        } else {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            User saved = userRepository.save(user);
+            saved.setPassword(null);
+            return new ResponseEntity<>(saved, HttpStatus.OK);
         }
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
 
-    // DELETE user
+    // DELETE user (admin only)
     @DeleteMapping("/{id}")
     public ResponseEntity<HttpStatus> deleteUser(@PathVariable Long id) {
         userRepository.deleteById(id);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
-    // POST login user
+    // POST login (public)
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> credentials) {
         String email = credentials.get("email");
         String password = credentials.get("password");
 
-        Optional<User> user = userRepository.findByEmailAndPassword(email, password);
+        Optional<User> userOpt = userRepository.findByEmail(email);
 
         Map<String, Object> response = new HashMap<>();
-        if (user.isPresent()) {
+        if (userOpt.isPresent() && passwordEncoder.matches(password, userOpt.get().getPassword())) {
+            User user = userOpt.get();
+            String token = jwtUtil.generateToken(user.getEmail(), user.getRole());
+
+            user.setPassword(null);
             response.put("success", true);
             response.put("message", "Login successful");
-            response.put("user", user.get());
-            response.put("role", user.get().getRole());
+            response.put("token", token);
+            response.put("user", user);
+            response.put("role", user.getRole());
             return new ResponseEntity<>(response, HttpStatus.OK);
-        } else {
-            response.put("success", false);
-            response.put("message", "Invalid email or password");
-            return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
         }
+
+        response.put("success", false);
+        response.put("message", "Invalid email or password");
+        return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
     }
 
-    // POST create admin user (with strong password validation)
+    // POST create admin user (admin only)
     @PostMapping("/admin")
     public ResponseEntity<Map<String, Object>> createAdmin(@RequestBody User user) {
         Map<String, Object> response = new HashMap<>();
 
-        // Validate admin password strength
         if (user.getPassword() == null || !ADMIN_PASSWORD_PATTERN.matcher(user.getPassword()).matches()) {
             response.put("success", false);
             response.put("message", "Admin password must be at least 15 characters with 1 uppercase, 1 lowercase, 1 digit, and 1 special character");
@@ -110,15 +135,73 @@ public class UserController {
         }
 
         user.setRole("admin");
-        User savedUser = userRepository.save(user);
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        User saved = userRepository.save(user);
+        saved.setPassword(null);
 
         response.put("success", true);
         response.put("message", "Admin created successfully");
-        response.put("user", savedUser);
+        response.put("user", saved);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
-    // Simple health check endpoint
+    // PUT reset password - admin sets new password without knowing old one
+    @PutMapping("/{id}/reset-password")
+    public ResponseEntity<Map<String, Object>> resetPassword(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        Map<String, Object> response = new HashMap<>();
+        String newPassword = body.get("newPassword");
+
+        if (newPassword == null || newPassword.isEmpty()) {
+            response.put("success", false);
+            response.put("message", "newPassword is required");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+
+        Optional<User> userOpt = userRepository.findById(id);
+        if (userOpt.isEmpty()) {
+            response.put("success", false);
+            response.put("message", "User not found");
+            return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+        }
+
+        User user = userOpt.get();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        response.put("success", true);
+        response.put("message", "Password reset successfully for: " + user.getEmail());
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    // POST migrate passwords - one-time endpoint to hash existing plaintext passwords
+    @PostMapping("/migrate-passwords")
+    public ResponseEntity<Map<String, Object>> migratePasswords(@RequestHeader("X-Migration-Secret") String secret) {
+        Map<String, Object> response = new HashMap<>();
+
+        if (!migrationSecret.equals(secret)) {
+            response.put("success", false);
+            response.put("message", "Unauthorized");
+            return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+        }
+
+        List<User> users = new ArrayList<>();
+        userRepository.findAll().forEach(users::add);
+
+        int migrated = 0;
+        for (User user : users) {
+            if (user.getPassword() != null && !user.getPassword().startsWith("$2a$")) {
+                user.setPassword(passwordEncoder.encode(user.getPassword()));
+                userRepository.save(user);
+                migrated++;
+            }
+        }
+
+        response.put("success", true);
+        response.put("message", "Migrated " + migrated + " passwords. Already hashed: " + (users.size() - migrated));
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    // GET health check (public)
     @GetMapping("/health")
     public ResponseEntity<String> health() {
         return new ResponseEntity<>("Backend is running!", HttpStatus.OK);

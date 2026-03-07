@@ -397,6 +397,10 @@
         let allNotes = [];
         let currentFilter = 'all';
 
+        function authHeaders() {
+            return { 'Authorization': 'Bearer ' + sessionStorage.getItem('token') };
+        }
+
         // Check if user is logged in
         if (!sessionStorage.getItem('loggedIn') || sessionStorage.getItem('userRole') !== 'user') {
             sessionStorage.clear();
@@ -425,7 +429,7 @@
 
         async function loadNotes() {
             try {
-                const response = await fetch(`${NOTES_URL}/user/${encodeURIComponent(userEmail)}`);
+                const response = await fetch(`${NOTES_URL}/user/${encodeURIComponent(userEmail)}`, { headers: authHeaders() });
                 if (response.ok) {
                     allNotes = await response.json();
                     renderNotes();
@@ -524,14 +528,14 @@
                     // Update existing note
                     response = await fetch(`${NOTES_URL}/${noteId}`, {
                         method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', ...authHeaders() },
                         body: JSON.stringify(noteData)
                     });
                 } else {
                     // Create new note
                     response = await fetch(NOTES_URL, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', ...authHeaders() },
                         body: JSON.stringify(noteData)
                     });
                 }
@@ -570,7 +574,8 @@
 
             try {
                 const response = await fetch(`${NOTES_URL}/${id}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: authHeaders()
                 });
 
                 if (response.ok) {
