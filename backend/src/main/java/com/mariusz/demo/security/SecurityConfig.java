@@ -37,6 +37,8 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // Allow CORS preflight requests
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // Public endpoints
                 .requestMatchers("/api/users/login", "/api/users/health").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/users/migrate-passwords").permitAll()
