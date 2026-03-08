@@ -3,7 +3,6 @@ package com.mariusz.demo.controller;
 import com.mariusz.demo.model.User;
 import com.mariusz.demo.repository.UserRepository;
 import com.mariusz.demo.security.JwtUtil;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -24,9 +23,6 @@ public class UserController {
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
-
-    @Value("${migration.secret}")
-    private String migrationSecret;
 
     // Admin password pattern: min 15 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special char
     private static final Pattern ADMIN_PASSWORD_PATTERN = Pattern.compile(
@@ -170,34 +166,6 @@ public class UserController {
 
         response.put("success", true);
         response.put("message", "Password reset successfully for: " + user.getEmail());
-        return new ResponseEntity<>(response, HttpStatus.OK);
-    }
-
-    // POST migrate passwords - one-time endpoint to hash existing plaintext passwords
-    @PostMapping("/migrate-passwords")
-    public ResponseEntity<Map<String, Object>> migratePasswords(@RequestHeader("X-Migration-Secret") String secret) {
-        Map<String, Object> response = new HashMap<>();
-
-        if (!migrationSecret.equals(secret)) {
-            response.put("success", false);
-            response.put("message", "Unauthorized");
-            return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
-        }
-
-        List<User> users = new ArrayList<>();
-        userRepository.findAll().forEach(users::add);
-
-        int migrated = 0;
-        for (User user : users) {
-            if (user.getPassword() != null && !user.getPassword().startsWith("$2a$")) {
-                user.setPassword(passwordEncoder.encode(user.getPassword()));
-                userRepository.save(user);
-                migrated++;
-            }
-        }
-
-        response.put("success", true);
-        response.put("message", "Migrated " + migrated + " passwords. Already hashed: " + (users.size() - migrated));
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 

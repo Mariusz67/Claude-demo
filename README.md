@@ -13,6 +13,12 @@ A production-ready full-stack web application demonstrating modern development p
 - ✅ RESTful API with Spring Boot
 - ✅ PostgreSQL database integration
 - ✅ Responsive vanilla JavaScript frontend
+- ✅ JWT authentication (24h tokens, HMAC-SHA signed)
+- ✅ Role-based access control (admin / user)
+- ✅ BCrypt password hashing
+- ✅ Notes CRUD for regular users
+- ✅ XSS protection via HTML escaping
+- ✅ Cache-control headers (no stale frontend in browser)
 - ✅ Automated HTML quality gates (GitHub Actions)
 - ✅ Continuous deployment to Railway
 - ✅ CORS-enabled for cross-origin requests
@@ -72,11 +78,18 @@ Claude demo/
 │   │   │   ├── java/com/mariusz/demo/
 │   │   │   │   ├── DemoApplication.java
 │   │   │   │   ├── controller/
-│   │   │   │   │   └── UserController.java
+│   │   │   │   │   ├── UserController.java
+│   │   │   │   │   └── NoteController.java
 │   │   │   │   ├── model/
-│   │   │   │   │   └── User.java
-│   │   │   │   └── repository/
-│   │   │   │       └── UserRepository.java
+│   │   │   │   │   ├── User.java
+│   │   │   │   │   └── Note.java
+│   │   │   │   ├── repository/
+│   │   │   │   │   ├── UserRepository.java
+│   │   │   │   │   └── NoteRepository.java
+│   │   │   │   └── security/
+│   │   │   │       ├── JwtUtil.java
+│   │   │   │       ├── JwtFilter.java
+│   │   │   │       └── SecurityConfig.java
 │   │   │   └── resources/
 │   │   │       ├── application.properties
 │   │   │       └── schema.sql
@@ -84,7 +97,10 @@ Claude demo/
 │   ├── nixpacks.toml
 │   └── railway.json
 ├── frontend/
-│   └── index.html
+│   ├── index.html       (login page)
+│   ├── dashboard.html   (admin panel - user management)
+│   ├── user.html        (user panel - notes)
+│   └── _headers         (Railway cache-control headers)
 ├── .github/
 │   └── workflows/
 │       └── ci.yml
@@ -182,6 +198,7 @@ Railway deployment requires manual configuration in the Railway dashboard. This 
    PGDATABASE = ${{Postgres.PGDATABASE}}
    PGUSER = ${{Postgres.PGUSER}}
    PGPASSWORD = ${{Postgres.PGPASSWORD}}
+   JWT_SECRET = <random string, min 32 characters>
    ```
 
    **c) Configure Networking**
@@ -208,57 +225,35 @@ If you want to deploy the frontend separately:
 
 ## 📡 API Endpoints
 
-### Health Check
-```http
-GET /api/users/health
-```
-**Response**: `Backend is running!`
+All endpoints except login and health require `Authorization: Bearer <token>` header.
+Admin-only endpoints additionally require the `admin` role in the token.
 
-### Get All Users
+### Public
+
 ```http
-GET /api/users
-```
-**Response**:
-```json
-[
-  {
-    "id": 1,
-    "name": "Alice Williams",
-    "email": "alice@example.com"
-  }
-]
+GET  /api/users/health
+POST /api/users/login          body: { email, password }
 ```
 
-### Get User by ID
+### Admin only
+
 ```http
-GET /api/users/{id}
-```
-
-### Create User
-```http
-POST /api/users
-Content-Type: application/json
-
-{
-  "name": "John Doe",
-  "email": "john@example.com"
-}
-```
-
-### Update User
-```http
-PUT /api/users/{id}
-Content-Type: application/json
-
-{
-  "name": "John Smith",
-  "email": "john.smith@example.com"
-}
-```
-
-### Delete User
-```http
+GET    /api/users              list all users
+GET    /api/users/{id}
+POST   /api/users              create user: { name, email, password }
+POST   /api/users/admin        create admin user (stricter password rules)
+PUT    /api/users/{id}         update user
+PUT    /api/users/{id}/reset-password   body: { newPassword }
 DELETE /api/users/{id}
+```
+
+### Authenticated users
+
+```http
+GET    /api/notes/user/{email}   list notes for user
+POST   /api/notes                create note: { userEmail, type, frequency, text }
+PUT    /api/notes/{id}           update note
+DELETE /api/notes/{id}           delete note
 ```
 
 ## 🧪 Testing
@@ -285,7 +280,19 @@ View workflow: `.github/workflows/ci.yml`
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255),
+    role VARCHAR(50) DEFAULT 'user'
+);
+
+CREATE TABLE notes (
+    id BIGSERIAL PRIMARY KEY,
+    user_email VARCHAR(255) NOT NULL,
+    type VARCHAR(50),
+    frequency VARCHAR(50) DEFAULT 'never',
+    text TEXT,
+    attachment_name VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
@@ -301,6 +308,7 @@ CREATE TABLE users (
 | `PGDATABASE` | Database name | `${{Postgres.PGDATABASE}}` |
 | `PGUSER` | Database user | `${{Postgres.PGUSER}}` |
 | `PGPASSWORD` | Database password | `${{Postgres.PGPASSWORD}}` |
+| `JWT_SECRET` | HMAC-SHA signing key (min 32 chars) | `your-random-secret` |
 
 ### Frontend Service (None required)
 
@@ -361,10 +369,11 @@ GitHub Actions workflow:
 
 ## 🎯 Future Improvements
 
+- [ ] Add self-registration for users
+- [ ] Token blocklist for immediate logout/revocation
 - [ ] Automate Railway configuration with Infrastructure as Code (Terraform/Pulumi)
 - [ ] Add backend unit and integration tests
 - [ ] Implement frontend testing (Jest/Cypress)
-- [ ] Add authentication and authorization
 - [ ] Implement pagination for large datasets
 - [ ] Add Docker support for local development
 - [ ] Set up staging environment

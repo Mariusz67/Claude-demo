@@ -20,12 +20,13 @@ cd backend
 cp .env.example .env
 ```
 
-**Edit `.env`** and add your Railway PostgreSQL credentials:
+**Edit `.env`** and add your Railway PostgreSQL credentials and JWT secret:
 
 ```properties
 DATABASE_URL=jdbc:postgresql://YOUR_RAILWAY_HOST:YOUR_PORT/railway
 DATABASE_USERNAME=YOUR_USERNAME
 DATABASE_PASSWORD=YOUR_PASSWORD
+JWT_SECRET=your-random-secret-at-least-32-characters-long
 ```
 
 **To get Railway PostgreSQL credentials:**
@@ -42,6 +43,7 @@ DATABASE_PASSWORD=YOUR_PASSWORD
 - ✅ `.env.example` is committed (template without secrets)
 - ✅ `application.properties` uses environment variables
 - ❌ NEVER commit `.env` to git!
+- ❌ Use a strong `JWT_SECRET` (min 32 random characters) — a weak secret allows token forgery
 
 ### 2. Install Dependencies
 
@@ -81,59 +83,51 @@ PostgreSQL on Railway (cloud)
 
 No local PostgreSQL installation needed — the app always connects to Railway's database.
 
+## Authentication
+
+All protected endpoints require a JWT token in the header:
+```
+Authorization: Bearer <token>
+```
+
+Obtain a token via `POST /api/users/login`. Tokens expire after 24 hours.
+
+Two roles exist: `admin` and `user`. Role is embedded in the token and enforced server-side.
+
 ## API Endpoints
 
-### Health Check
+### Public (no token required)
 ```
-GET /api/users/health
-```
-
-### User Management
-
-**Get all users:**
-```
-GET /api/users
+GET  /api/users/health
+POST /api/users/login          body: { "email": "...", "password": "..." }
 ```
 
-**Get user by ID:**
+### Admin only
 ```
-GET /api/users/{id}
-```
-
-**Create new user:**
-```
-POST /api/users
-Content-Type: application/json
-
-{
-  "name": "John Doe",
-  "email": "john@example.com"
-}
-```
-
-**Update user:**
-```
-PUT /api/users/{id}
-Content-Type: application/json
-
-{
-  "name": "Jane Doe",
-  "email": "jane@example.com"
-}
-```
-
-**Delete user:**
-```
+GET    /api/users
+GET    /api/users/{id}
+POST   /api/users              body: { name, email, password }
+POST   /api/users/admin        body: { name, email, password }  (stricter password rules)
+PUT    /api/users/{id}         body: { name, email, password? }
+PUT    /api/users/{id}/reset-password   body: { "newPassword": "..." }
 DELETE /api/users/{id}
+```
+
+### Authenticated users
+```
+GET    /api/notes/user/{email}
+POST   /api/notes              body: { userEmail, type, frequency, text }
+PUT    /api/notes/{id}         body: { userEmail, type, frequency, text }
+DELETE /api/notes/{id}
 ```
 
 ## Testing with Postman
 
 1. Start the application
-2. Open Postman
-3. Test health endpoint: `GET http://localhost:8081/api/users/health`
-4. Create a user: `POST http://localhost:8081/api/users` with JSON body
-5. Get all users: `GET http://localhost:8081/api/users`
+2. Login: `POST http://localhost:8081/api/users/login` with `{ "email": "...", "password": "..." }`
+3. Copy the `token` from the response
+4. Add header `Authorization: Bearer <token>` to all subsequent requests
+5. Test health: `GET http://localhost:8081/api/users/health` (no token needed)
 
 ## Project Structure
 
@@ -144,11 +138,18 @@ backend/
 │   │   ├── java/com/mariusz/demo/
 │   │   │   ├── DemoApplication.java
 │   │   │   ├── controller/
-│   │   │   │   └── UserController.java
+│   │   │   │   ├── UserController.java
+│   │   │   │   └── NoteController.java
 │   │   │   ├── model/
-│   │   │   │   └── User.java
-│   │   │   └── repository/
-│   │   │       └── UserRepository.java
+│   │   │   │   ├── User.java
+│   │   │   │   └── Note.java
+│   │   │   ├── repository/
+│   │   │   │   ├── UserRepository.java
+│   │   │   │   └── NoteRepository.java
+│   │   │   └── security/
+│   │   │       ├── JwtUtil.java        (token generation & validation)
+│   │   │       ├── JwtFilter.java      (per-request token check)
+│   │   │       └── SecurityConfig.java (route protection rules)
 │   │   └── resources/
 │   │       ├── application.properties
 │   │       └── schema.sql
@@ -214,6 +215,9 @@ GET https://<pretty-ilumination-url>/api/users/health
 ## Technology Stack
 
 - Spring Boot 3.2.1
+- Spring Security (JWT, stateless sessions)
 - Spring Data JDBC
 - PostgreSQL
 - Maven
+- jjwt (JWT library)
+- BCrypt (password hashing)

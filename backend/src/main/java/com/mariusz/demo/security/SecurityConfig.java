@@ -41,7 +41,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // Public endpoints
                 .requestMatchers("/api/users/login", "/api/users/health").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/users/migrate-passwords").permitAll()
+                // Admin-only: all notes list
+                .requestMatchers(HttpMethod.GET, "/api/notes").hasRole("ADMIN")
                 // Admin-only: user management
                 .requestMatchers(HttpMethod.GET, "/api/users").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/users/**").hasRole("ADMIN")
