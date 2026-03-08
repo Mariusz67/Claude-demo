@@ -3,6 +3,8 @@ package com.mariusz.demo.controller;
 import com.mariusz.demo.model.User;
 import com.mariusz.demo.repository.UserRepository;
 import com.mariusz.demo.security.JwtUtil;
+import com.mariusz.demo.security.LoginRateLimiter;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -23,16 +25,18 @@ public class UserController {
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final LoginRateLimiter rateLimiter;
 
     // Admin password pattern: min 15 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special char
     private static final Pattern ADMIN_PASSWORD_PATTERN = Pattern.compile(
         "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?]).{15,}$"
     );
 
-    public UserController(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
+    public UserController(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder, JwtUtil jwtUtil, LoginRateLimiter rateLimiter) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
+        this.rateLimiter = rateLimiter;
     }
 
     // GET all users (admin only - enforced by SecurityConfig)
@@ -94,17 +98,26 @@ public class UserController {
 
     // POST login (public)
     @PostMapping("/login")
-    public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> credentials) {
+    public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> credentials, HttpServletRequest request) {
+        String ip = request.getRemoteAddr();
+        Map<String, Object> response = new HashMap<>();
+
+        if (rateLimiter.isBlocked(ip)) {
+            response.put("success", false);
+            response.put("message", "Too many failed login attempts. Try again in " + rateLimiter.remainingLockoutSeconds(ip) + " seconds.");
+            return new ResponseEntity<>(response, HttpStatus.TOO_MANY_REQUESTS);
+        }
+
         String email = credentials.get("email");
         String password = credentials.get("password");
 
         Optional<User> userOpt = userRepository.findByEmail(email);
 
-        Map<String, Object> response = new HashMap<>();
         if (userOpt.isPresent() && passwordEncoder.matches(password, userOpt.get().getPassword())) {
             User user = userOpt.get();
             String token = jwtUtil.generateToken(user.getEmail(), user.getRole());
 
+            rateLimiter.recordSuccess(ip);
             user.setPassword(null);
             response.put("success", true);
             response.put("message", "Login successful");
@@ -114,6 +127,7 @@ public class UserController {
             return new ResponseEntity<>(response, HttpStatus.OK);
         }
 
+        rateLimiter.recordFailure(ip);
         response.put("success", false);
         response.put("message", "Invalid email or password");
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
