@@ -68,19 +68,41 @@
             text-align: center;
             font-size: 0.85rem;
         }
+
+        .success-message {
+            background: #b2f5c8;
+            color: #1a7a3c;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .toggle-link {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .toggle-link a {
+            color: #6c63ff;
+            cursor: pointer;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
     <div class="login-container">
-        <h1>Login</h1>
+        <h1 id="formTitle">Login</h1>
         <p class="subtitle">Demo User Management System</p>
 
-        <div class="info-message">
-            Please login to continue.
-        </div>
-
         <div id="errorMessage" class="error-message"></div>
+        <div id="successMessage" class="success-message"></div>
 
+        <!-- Login Form -->
         <form id="loginForm" onsubmit="handleLogin(event)">
             <div class="form-group">
                 <label for="email">Email Address</label>
@@ -107,6 +129,68 @@
             </div>
 
             <button type="submit" class="btn btn-login">Login</button>
+
+            <div class="toggle-link">
+                No account? <a onclick="showRegister()">Register here</a>
+            </div>
+        </form>
+
+        <!-- Register Form -->
+        <form id="registerForm" onsubmit="handleRegister(event)" style="display:none">
+            <div class="form-group">
+                <label for="regName">Full Name</label>
+                <input
+                    type="text"
+                    id="regName"
+                    name="regName"
+                    required
+                    placeholder="Enter your name"
+                    autocomplete="name"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="regEmail">Email Address</label>
+                <input
+                    type="email"
+                    id="regEmail"
+                    name="regEmail"
+                    required
+                    placeholder="Enter your email"
+                    autocomplete="email"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="regPassword">Password</label>
+                <input
+                    type="password"
+                    id="regPassword"
+                    name="regPassword"
+                    required
+                    minlength="8"
+                    placeholder="At least 8 characters"
+                    autocomplete="new-password"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="regPasswordConfirm">Confirm Password</label>
+                <input
+                    type="password"
+                    id="regPasswordConfirm"
+                    name="regPasswordConfirm"
+                    required
+                    placeholder="Repeat your password"
+                    autocomplete="new-password"
+                >
+            </div>
+
+            <button type="submit" class="btn btn-login">Create Account</button>
+
+            <div class="toggle-link">
+                Already have an account? <a onclick="showLogin()">Login here</a>
+            </div>
         </form>
     </div>
 
@@ -117,6 +201,76 @@
             : 'https://pretty-illumination-production.up.railway.app';
 
         const LOGIN_URL = BASE_URL + '/api/users/login';
+        const REGISTER_URL = BASE_URL + '/api/users/register';
+
+        function showRegister() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'block';
+            document.getElementById('formTitle').textContent = 'Register';
+            clearMessages();
+        }
+
+        function showLogin() {
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('formTitle').textContent = 'Login';
+            clearMessages();
+        }
+
+        function clearMessages() {
+            const err = document.getElementById('errorMessage');
+            const suc = document.getElementById('successMessage');
+            err.style.display = 'none';
+            suc.style.display = 'none';
+        }
+
+        async function handleRegister(event) {
+            event.preventDefault();
+            const form = document.getElementById('registerForm');
+            const errorMessage = document.getElementById('errorMessage');
+            const successMessage = document.getElementById('successMessage');
+
+            const name = document.getElementById('regName').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const confirm = document.getElementById('regPasswordConfirm').value;
+
+            clearMessages();
+
+            if (password !== confirm) {
+                errorMessage.textContent = 'Passwords do not match';
+                errorMessage.style.display = 'block';
+                return;
+            }
+
+            form.classList.add('loading');
+
+            try {
+                const response = await fetch(REGISTER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    successMessage.textContent = 'Account created! You can now log in.';
+                    successMessage.style.display = 'block';
+                    form.reset();
+                    setTimeout(showLogin, 1500);
+                } else {
+                    errorMessage.textContent = data.message || 'Registration failed. Please try again.';
+                    errorMessage.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Register error:', error);
+                errorMessage.textContent = 'Cannot connect to server. Please try again later.';
+                errorMessage.style.display = 'block';
+            } finally {
+                form.classList.remove('loading');
+            }
+        }
 
         async function handleLogin(event) {
             event.preventDefault();

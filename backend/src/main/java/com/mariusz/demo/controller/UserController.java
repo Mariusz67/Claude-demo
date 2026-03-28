@@ -183,6 +183,51 @@ public class UserController {
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
+    // POST register (public self-registration)
+    @PostMapping("/register")
+    public ResponseEntity<Map<String, Object>> register(@RequestBody Map<String, String> body) {
+        Map<String, Object> response = new HashMap<>();
+
+        String name = body.get("name");
+        String email = body.get("email");
+        String password = body.get("password");
+
+        if (name == null || name.trim().isEmpty()) {
+            response.put("success", false);
+            response.put("message", "Name is required");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+        if (email == null || !email.contains("@")) {
+            response.put("success", false);
+            response.put("message", "A valid email is required");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+        if (password == null || password.length() < 8) {
+            response.put("success", false);
+            response.put("message", "Password must be at least 8 characters");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+        if (userRepository.findByEmail(email).isPresent()) {
+            response.put("success", false);
+            response.put("message", "An account with this email already exists");
+            return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+        }
+
+        User user = new User();
+        user.setName(name.trim());
+        user.setEmail(email.trim().toLowerCase());
+        user.setPassword(passwordEncoder.encode(password));
+        user.setRole("user");
+
+        User saved = userRepository.save(user);
+        saved.setPassword(null);
+
+        response.put("success", true);
+        response.put("message", "Account created successfully");
+        response.put("user", saved);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
     // GET health check (public)
     @GetMapping("/health")
     public ResponseEntity<String> health() {
