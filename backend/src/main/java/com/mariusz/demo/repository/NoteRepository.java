@@ -1,6 +1,7 @@
 package com.mariusz.demo.repository;
 
 import com.mariusz.demo.model.Note;
+import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 
@@ -14,4 +15,7 @@ public interface NoteRepository extends CrudRepository<Note, Long> {
     List<Note> findByUserEmailAndType(String userEmail, String type);
 
     List<Note> findByType(String type);
+
+    @Query("SELECT * FROM notes WHERE type = 'reminder' AND frequency != 'never'")
+    List<Note> findAllActiveReminders();
 }

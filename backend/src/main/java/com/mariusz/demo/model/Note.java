@@ -34,6 +34,9 @@ public class Note {
     @Column("attachment_data")
     private String attachmentData; // Base64 encoded
 
+    @Column("last_sent_at")
+    private LocalDateTime lastSentAt;
+
     // Constructors
     public Note() {
         this.createdAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
@@ -119,6 +122,14 @@ public class Note {
 
     public void setAttachmentData(String attachmentData) {
         this.attachmentData = attachmentData;
+    }
+
+    public LocalDateTime getLastSentAt() {
+        return lastSentAt;
+    }
+
+    public void setLastSentAt(LocalDateTime lastSentAt) {
+        this.lastSentAt = lastSentAt;
     }
 
     @Override

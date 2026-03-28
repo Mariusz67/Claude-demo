@@ -20,3 +20,6 @@ CREATE TABLE IF NOT EXISTS notes (
     attachment_data TEXT,
     FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE
 );
+
+-- Add last_sent_at column for reminder scheduling (safe to run multiple times)
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS last_sent_at TIMESTAMP;
