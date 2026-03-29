@@ -58,7 +58,7 @@ public class ReminderScheduler {
             int quarters = note.getRepeatQuarters() != null ? note.getRepeatQuarters() : 0;
             long totalMinutes = (long) days * 24 * 60 + (long) hours * 60 + (long) quarters * 15;
             if (totalMinutes == 0) return false; // repeat enabled but no interval set
-            return lastSent.plusMinutes(totalMinutes).isBefore(now);
+            return !lastSent.plusMinutes(totalMinutes).isAfter(now);
         }
 
         // Old format: frequency field
