@@ -471,11 +471,22 @@
         function formatDate(dateStr) {
             if (!dateStr) return '';
             try {
-                const date = new Date(dateStr);
+                // Append Z if no timezone info so browser treats it as UTC
+                const normalized = /Z|[+-]\d{2}:\d{2}$/.test(dateStr) ? dateStr : dateStr + 'Z';
+                const date = new Date(normalized);
                 return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             } catch {
                 return dateStr;
             }
+        }
+
+        // Convert UTC datetime string from server to local datetime-local input value
+        function utcToLocalInput(utcStr) {
+            if (!utcStr) return '';
+            const normalized = /Z|[+-]\d{2}:\d{2}$/.test(utcStr) ? utcStr : utcStr + 'Z';
+            const d = new Date(normalized);
+            const pad = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
         }
 
         function escapeHtml(text) {
@@ -514,7 +525,8 @@
             } else if (type === 'reminder') {
                 noteData.frequency = 'never';
                 const reminderAtVal = document.getElementById('reminderAt').value;
-                noteData.reminderAt = reminderAtVal ? reminderAtVal : null;
+                // Convert local time to UTC before sending to server
+                noteData.reminderAt = reminderAtVal ? new Date(reminderAtVal).toISOString().slice(0, 19) : null;
                 noteData.repeatUntilDeleted = document.getElementById('repeatUntilDeleted').checked;
                 noteData.repeatDays = parseInt(document.getElementById('repeatDays').value) || 0;
                 noteData.repeatHours = parseInt(document.getElementById('repeatHours').value) || 0;
@@ -566,8 +578,8 @@
                 document.getElementById('noteFrequency').value = note.frequency || 'weekly';
             } else if (note.type === 'reminder') {
                 if (note.reminderAt) {
-                    // datetime-local expects "YYYY-MM-DDTHH:MM"
-                    document.getElementById('reminderAt').value = note.reminderAt.slice(0, 16);
+                    // Convert UTC from server back to local time for the input
+                    document.getElementById('reminderAt').value = utcToLocalInput(note.reminderAt);
                 }
                 document.getElementById('repeatUntilDeleted').checked = !!note.repeatUntilDeleted;
                 document.getElementById('repeatDays').value = note.repeatDays || 0;

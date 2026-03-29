@@ -16,7 +16,11 @@ A production-ready full-stack web application demonstrating modern development p
 - ✅ JWT authentication (24h tokens, HMAC-SHA signed)
 - ✅ Role-based access control (admin / user)
 - ✅ BCrypt password hashing
-- ✅ Notes CRUD for regular users
+- ✅ Notes / Memos / Reminders CRUD for regular users
+- ✅ Type-specific form behaviour (note / memo / reminder)
+- ✅ Email reminders via Resend SMTP (memobee.eu domain)
+- ✅ Scheduled reminder processing (hourly, supports repeat intervals)
+- ✅ UTC-aware datetime handling (correct timezone display)
 - ✅ XSS protection via HTML escaping
 - ✅ Cache-control headers (no stale frontend in browser)
 - ✅ Automated HTML quality gates (GitHub Actions)
@@ -86,6 +90,9 @@ Claude demo/
 │   │   │   │   ├── repository/
 │   │   │   │   │   ├── UserRepository.java
 │   │   │   │   │   └── NoteRepository.java
+│   │   │   │   ├── service/
+│   │   │   │   │   ├── EmailService.java       (Resend SMTP sending)
+│   │   │   │   │   └── ReminderScheduler.java  (hourly reminder processing)
 │   │   │   │   └── security/
 │   │   │   │       ├── JwtUtil.java
 │   │   │   │       ├── JwtFilter.java
@@ -97,9 +104,9 @@ Claude demo/
 │   ├── nixpacks.toml
 │   └── railway.json
 ├── frontend/
-│   ├── index.html       (login page)
+│   ├── index.html       (login / self-registration page)
 │   ├── dashboard.html   (admin panel - user management)
-│   ├── user.html        (user panel - notes)
+│   ├── user.html        (user panel - notes / memos / reminders)
 │   └── _headers         (Railway cache-control headers)
 ├── .github/
 │   └── workflows/
@@ -251,10 +258,23 @@ DELETE /api/users/{id}
 
 ```http
 GET    /api/notes/user/{email}   list notes for user
-POST   /api/notes                create note: { userEmail, type, frequency, text }
-PUT    /api/notes/{id}           update note
+POST   /api/notes                create note (see body fields below)
+PUT    /api/notes/{id}           update note (same fields)
 DELETE /api/notes/{id}           delete note
 ```
+
+**Note body fields by type:**
+
+| Field | Note | Memo | Reminder |
+|-------|------|------|----------|
+| `type` | `"note"` | `"memo"` | `"reminder"` |
+| `text` | ✅ | ✅ | ✅ |
+| `frequency` | always `"never"` | `never`/`daily`/`weekly`/`monthly`/`quarterly`/`yearly` (default: `weekly`) | always `"never"` |
+| `reminderAt` | — | — | ISO datetime UTC (e.g. `"2026-03-29T12:00:00"`) |
+| `repeatUntilDeleted` | — | — | `true` / `false` |
+| `repeatDays` | — | — | integer ≥ 0 (default `0`) |
+| `repeatHours` | — | — | integer ≥ 0 (default `0`) |
+| `repeatQuarters` | — | — | integer ≥ 0 (15 min units, default `0`) |
 
 ## 🧪 Testing
 
@@ -288,11 +308,21 @@ CREATE TABLE users (
 CREATE TABLE notes (
     id BIGSERIAL PRIMARY KEY,
     user_email VARCHAR(255) NOT NULL,
-    type VARCHAR(50),
-    frequency VARCHAR(50) DEFAULT 'never',
+    created_at TEXT,
+    type VARCHAR(20) NOT NULL,           -- note | memo | reminder
     text TEXT,
+    frequency VARCHAR(20) DEFAULT 'never', -- memo: never/daily/weekly/monthly/quarterly/yearly
     attachment_name VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    attachment_type VARCHAR(50),
+    attachment_data TEXT,                -- Base64 encoded
+    last_sent_at TIMESTAMP,              -- set after each email is sent
+    -- reminder-specific columns:
+    reminder_at TIMESTAMP,               -- UTC datetime to fire the reminder
+    repeat_until_deleted BOOLEAN DEFAULT FALSE,
+    repeat_days INTEGER DEFAULT 0,
+    repeat_hours INTEGER DEFAULT 0,
+    repeat_quarters INTEGER DEFAULT 0,   -- units of 15 minutes
+    FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE
 );
 ```
 
@@ -309,6 +339,8 @@ CREATE TABLE notes (
 | `PGUSER` | Database user | `${{Postgres.PGUSER}}` |
 | `PGPASSWORD` | Database password | `${{Postgres.PGPASSWORD}}` |
 | `JWT_SECRET` | HMAC-SHA signing key (min 32 chars) | `your-random-secret` |
+| `RESEND_API_KEY` | Resend SMTP API key for sending emails | `re_...` |
+| `MAIL_FROM` | Sender address (verified domain required) | `reminder@memobee.eu` |
 
 ### Frontend Service (None required)
 
@@ -369,7 +401,6 @@ GitHub Actions workflow:
 
 ## 🎯 Future Improvements
 
-- [ ] Add self-registration for users
 - [ ] Token blocklist for immediate logout/revocation
 - [ ] Automate Railway configuration with Infrastructure as Code (Terraform/Pulumi)
 - [ ] Add backend unit and integration tests
