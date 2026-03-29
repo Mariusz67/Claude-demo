@@ -1,35 +1,53 @@
 package com.mariusz.demo.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 
 @Service
 public class EmailService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailService.class);
 
-    private final JavaMailSender mailSender;
+    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Value("${resend.api.key}")
+    private String apiKey;
 
     @Value("${mail.from}")
     private String from;
 
-    public EmailService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
-    }
-
     public void sendReminder(String to, String noteText) {
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(from);
-            message.setTo(to);
-            message.setSubject("Reminder: " + truncate(noteText, 60));
-            message.setText("Hello,\n\nHere is your scheduled reminder:\n\n" + noteText + "\n\nBest regards,\nDemo App");
-            mailSender.send(message);
-            log.info("Reminder sent to {}", to);
+            ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("from", from);
+            payload.put("to", to);
+            payload.put("subject", "Reminder: " + truncate(noteText, 60));
+            payload.put("text", "Hello,\n\nHere is your scheduled reminder:\n\n" + noteText + "\n\nBest regards,\nMemoBee");
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.resend.com/emails"))
+                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                log.info("Reminder sent to {}", to);
+            } else {
+                log.error("Failed to send reminder to {}: HTTP {} - {}", to, response.statusCode(), response.body());
+            }
         } catch (Exception e) {
             log.error("Failed to send reminder to {}: {}", to, e.getMessage());
         }
