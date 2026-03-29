@@ -23,3 +23,10 @@ CREATE TABLE IF NOT EXISTS notes (
 
 -- Add last_sent_at column for reminder scheduling (safe to run multiple times)
 ALTER TABLE notes ADD COLUMN IF NOT EXISTS last_sent_at TIMESTAMP;
+
+-- Add reminder-specific columns
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS reminder_at TIMESTAMP;
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS repeat_until_deleted BOOLEAN DEFAULT FALSE;
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS repeat_days INTEGER DEFAULT 0;
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS repeat_hours INTEGER DEFAULT 0;
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS repeat_quarters INTEGER DEFAULT 0;

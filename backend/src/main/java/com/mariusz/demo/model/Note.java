@@ -37,6 +37,21 @@ public class Note {
     @Column("last_sent_at")
     private LocalDateTime lastSentAt;
 
+    @Column("reminder_at")
+    private LocalDateTime reminderAt;
+
+    @Column("repeat_until_deleted")
+    private Boolean repeatUntilDeleted;
+
+    @Column("repeat_days")
+    private Integer repeatDays;
+
+    @Column("repeat_hours")
+    private Integer repeatHours;
+
+    @Column("repeat_quarters")
+    private Integer repeatQuarters;
+
     // Constructors
     public Note() {
         this.createdAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
@@ -130,6 +145,46 @@ public class Note {
 
     public void setLastSentAt(LocalDateTime lastSentAt) {
         this.lastSentAt = lastSentAt;
+    }
+
+    public LocalDateTime getReminderAt() {
+        return reminderAt;
+    }
+
+    public void setReminderAt(LocalDateTime reminderAt) {
+        this.reminderAt = reminderAt;
+    }
+
+    public Boolean getRepeatUntilDeleted() {
+        return repeatUntilDeleted;
+    }
+
+    public void setRepeatUntilDeleted(Boolean repeatUntilDeleted) {
+        this.repeatUntilDeleted = repeatUntilDeleted;
+    }
+
+    public Integer getRepeatDays() {
+        return repeatDays;
+    }
+
+    public void setRepeatDays(Integer repeatDays) {
+        this.repeatDays = repeatDays;
+    }
+
+    public Integer getRepeatHours() {
+        return repeatHours;
+    }
+
+    public void setRepeatHours(Integer repeatHours) {
+        this.repeatHours = repeatHours;
+    }
+
+    public Integer getRepeatQuarters() {
+        return repeatQuarters;
+    }
+
+    public void setRepeatQuarters(Integer repeatQuarters) {
+        this.repeatQuarters = repeatQuarters;
     }
 
     @Override

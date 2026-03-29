@@ -261,14 +261,14 @@
             <div class="form-row">
                 <div class="form-group">
                     <label for="noteType">Type</label>
-                    <select id="noteType" required>
+                    <select id="noteType" required onchange="onTypeChange()">
                         <option value="">-- Select type --</option>
                         <option value="note">Note</option>
                         <option value="memo">Memo</option>
                         <option value="reminder">Reminder</option>
                     </select>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="frequencyGroup">
                     <label for="noteFrequency">Frequency</label>
                     <select id="noteFrequency">
                         <option value="never">Never</option>
@@ -278,6 +278,34 @@
                         <option value="quarterly">Quarterly</option>
                         <option value="yearly">Yearly</option>
                     </select>
+                </div>
+            </div>
+            <!-- Reminder-specific options -->
+            <div id="reminderOptions" style="display:none;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="reminderAt">Reminder date &amp; time</label>
+                        <input type="datetime-local" id="reminderAt">
+                    </div>
+                    <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:4px;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="repeatUntilDeleted"> Repeat until deleted
+                        </label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="repeatDays">Days</label>
+                        <input type="number" id="repeatDays" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="repeatHours">Hours</label>
+                        <input type="number" id="repeatHours" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="repeatQuarters">Quarters (15 min)</label>
+                        <input type="number" id="repeatQuarters" value="0" min="0">
+                    </div>
                 </div>
             </div>
             <div class="form-row">
@@ -339,6 +367,27 @@
         // Load notes on page load
         loadNotes();
 
+        function onTypeChange() {
+            const type = document.getElementById('noteType').value;
+            const frequencyGroup = document.getElementById('frequencyGroup');
+            const reminderOptions = document.getElementById('reminderOptions');
+
+            if (type === 'note') {
+                frequencyGroup.style.display = 'none';
+                reminderOptions.style.display = 'none';
+            } else if (type === 'memo') {
+                frequencyGroup.style.display = '';
+                document.getElementById('noteFrequency').value = 'weekly';
+                reminderOptions.style.display = 'none';
+            } else if (type === 'reminder') {
+                frequencyGroup.style.display = 'none';
+                reminderOptions.style.display = '';
+            } else {
+                frequencyGroup.style.display = '';
+                reminderOptions.style.display = 'none';
+            }
+        }
+
         function showMessage(text, type) {
             const msg = document.getElementById('message');
             msg.textContent = text;
@@ -384,12 +433,28 @@
                 return b.createdAt.localeCompare(a.createdAt);
             });
 
-            notesList.innerHTML = filteredNotes.map(note => `
+            notesList.innerHTML = filteredNotes.map(note => {
+                let metaExtra = '';
+                if (note.type === 'memo' && note.frequency && note.frequency !== 'never') {
+                    metaExtra = `<span class="note-frequency">${note.frequency}</span>`;
+                } else if (note.type === 'reminder') {
+                    if (note.reminderAt) {
+                        metaExtra += `<span class="note-frequency">at ${formatDate(note.reminderAt)}</span>`;
+                    }
+                    if (note.repeatUntilDeleted) {
+                        const parts = [];
+                        if (note.repeatDays) parts.push(`${note.repeatDays}d`);
+                        if (note.repeatHours) parts.push(`${note.repeatHours}h`);
+                        if (note.repeatQuarters) parts.push(`${note.repeatQuarters}q`);
+                        metaExtra += `<span class="note-frequency">repeats every ${parts.length ? parts.join(' ') : '—'}</span>`;
+                    }
+                }
+                return `
                 <div class="note-card type-${note.type}">
                     <div class="note-header">
                         <div class="note-meta">
                             <span class="note-type type-${note.type}">${note.type}</span>
-                            ${note.frequency && note.frequency !== 'never' ? `<span class="note-frequency">${note.frequency}</span>` : ''}
+                            ${metaExtra}
                             <span class="note-date">${formatDate(note.createdAt)}</span>
                         </div>
                         <div class="note-actions">
@@ -399,8 +464,8 @@
                     </div>
                     <div class="note-text">${escapeHtml(note.text || '')}</div>
                     ${note.attachmentName ? `<div class="note-attachment">Attachment: ${escapeHtml(note.attachmentName)}</div>` : ''}
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
         }
 
         function formatDate(dateStr) {
@@ -429,7 +494,6 @@
         async function saveNote() {
             const noteId = document.getElementById('noteId').value;
             const type = document.getElementById('noteType').value;
-            const frequency = document.getElementById('noteFrequency').value;
             const text = document.getElementById('noteText').value;
 
             if (!text.trim()) {
@@ -440,9 +504,22 @@
             const noteData = {
                 userEmail: userEmail,
                 type: type,
-                frequency: frequency,
                 text: text
             };
+
+            if (type === 'note') {
+                noteData.frequency = 'never';
+            } else if (type === 'memo') {
+                noteData.frequency = document.getElementById('noteFrequency').value;
+            } else if (type === 'reminder') {
+                noteData.frequency = 'never';
+                const reminderAtVal = document.getElementById('reminderAt').value;
+                noteData.reminderAt = reminderAtVal ? reminderAtVal : null;
+                noteData.repeatUntilDeleted = document.getElementById('repeatUntilDeleted').checked;
+                noteData.repeatDays = parseInt(document.getElementById('repeatDays').value) || 0;
+                noteData.repeatHours = parseInt(document.getElementById('repeatHours').value) || 0;
+                noteData.repeatQuarters = parseInt(document.getElementById('repeatQuarters').value) || 0;
+            }
 
             try {
                 let response;
@@ -481,8 +558,22 @@
 
             document.getElementById('noteId').value = note.id;
             document.getElementById('noteType').value = note.type;
-            document.getElementById('noteFrequency').value = note.frequency || 'never';
             document.getElementById('noteText').value = note.text || '';
+
+            onTypeChange();
+
+            if (note.type === 'memo') {
+                document.getElementById('noteFrequency').value = note.frequency || 'weekly';
+            } else if (note.type === 'reminder') {
+                if (note.reminderAt) {
+                    // datetime-local expects "YYYY-MM-DDTHH:MM"
+                    document.getElementById('reminderAt').value = note.reminderAt.slice(0, 16);
+                }
+                document.getElementById('repeatUntilDeleted').checked = !!note.repeatUntilDeleted;
+                document.getElementById('repeatDays').value = note.repeatDays || 0;
+                document.getElementById('repeatHours').value = note.repeatHours || 0;
+                document.getElementById('repeatQuarters').value = note.repeatQuarters || 0;
+            }
 
             document.getElementById('formTitle').textContent = 'Edit Note';
             document.getElementById('cancelBtn').style.display = 'inline-block';
@@ -517,6 +608,13 @@
             document.getElementById('noteType').value = '';
             document.getElementById('noteFrequency').value = 'never';
             document.getElementById('noteText').value = '';
+            document.getElementById('reminderAt').value = '';
+            document.getElementById('repeatUntilDeleted').checked = false;
+            document.getElementById('repeatDays').value = 0;
+            document.getElementById('repeatHours').value = 0;
+            document.getElementById('repeatQuarters').value = 0;
+            document.getElementById('frequencyGroup').style.display = '';
+            document.getElementById('reminderOptions').style.display = 'none';
             document.getElementById('formTitle').textContent = 'Add New Note';
             document.getElementById('cancelBtn').style.display = 'none';
         }

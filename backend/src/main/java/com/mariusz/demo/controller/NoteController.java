@@ -133,6 +133,21 @@ public class NoteController {
         if (noteDetails.getAttachmentData() != null) {
             note.setAttachmentData(noteDetails.getAttachmentData());
         }
+        if (noteDetails.getReminderAt() != null) {
+            note.setReminderAt(noteDetails.getReminderAt());
+        }
+        if (noteDetails.getRepeatUntilDeleted() != null) {
+            note.setRepeatUntilDeleted(noteDetails.getRepeatUntilDeleted());
+        }
+        if (noteDetails.getRepeatDays() != null) {
+            note.setRepeatDays(noteDetails.getRepeatDays());
+        }
+        if (noteDetails.getRepeatHours() != null) {
+            note.setRepeatHours(noteDetails.getRepeatHours());
+        }
+        if (noteDetails.getRepeatQuarters() != null) {
+            note.setRepeatQuarters(noteDetails.getRepeatQuarters());
+        }
 
         return new ResponseEntity<>(noteRepository.save(note), HttpStatus.OK);
     }
