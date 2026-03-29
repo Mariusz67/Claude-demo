@@ -26,20 +26,20 @@ public class ReminderScheduler {
     // Runs every 5 minutes
     @Scheduled(fixedRate = 300_000)
     public void processReminders() {
+        LocalDateTime now = LocalDateTime.now();
         List<Note> reminders = noteRepository.findAllActiveReminders();
         log.info("Checking {} active reminder(s)", reminders.size());
 
         for (Note note : reminders) {
-            if (isDue(note)) {
+            if (isDue(note, now)) {
                 emailService.sendReminder(note.getUserEmail(), note.getText());
-                note.setLastSentAt(LocalDateTime.now());
+                note.setLastSentAt(now);
                 noteRepository.save(note);
             }
         }
     }
 
-    private boolean isDue(Note note) {
-        LocalDateTime now = LocalDateTime.now();
+    private boolean isDue(Note note, LocalDateTime now) {
         LocalDateTime lastSent = note.getLastSentAt();
 
         // New format: reminderAt + optional repeat interval
