@@ -16,6 +16,6 @@ public interface NoteRepository extends CrudRepository<Note, Long> {
 
     List<Note> findByType(String type);
 
-    @Query("SELECT * FROM notes WHERE type = 'reminder' AND frequency != 'never'")
+    @Query("SELECT * FROM notes WHERE type = 'reminder' AND (frequency != 'never' OR reminder_at IS NOT NULL)")
     List<Note> findAllActiveReminders();
 }

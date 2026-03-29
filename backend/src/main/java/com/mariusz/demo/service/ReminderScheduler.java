@@ -39,14 +39,32 @@ public class ReminderScheduler {
     }
 
     private boolean isDue(Note note) {
-        LocalDateTime lastSent = note.getLastSentAt();
         LocalDateTime now = LocalDateTime.now();
+        LocalDateTime lastSent = note.getLastSentAt();
 
-        if (lastSent == null) {
-            return true;
+        // New format: reminderAt + optional repeat interval
+        if (note.getReminderAt() != null) {
+            if (now.isBefore(note.getReminderAt())) {
+                return false; // scheduled time not reached yet
+            }
+            if (lastSent == null) {
+                return true; // never sent and time has passed
+            }
+            if (!Boolean.TRUE.equals(note.getRepeatUntilDeleted())) {
+                return false; // one-time reminder, already sent
+            }
+            int days     = note.getRepeatDays()     != null ? note.getRepeatDays()     : 0;
+            int hours    = note.getRepeatHours()    != null ? note.getRepeatHours()    : 0;
+            int quarters = note.getRepeatQuarters() != null ? note.getRepeatQuarters() : 0;
+            long totalMinutes = (long) days * 24 * 60 + (long) hours * 60 + (long) quarters * 15;
+            if (totalMinutes == 0) return false; // repeat enabled but no interval set
+            return lastSent.plusMinutes(totalMinutes).isBefore(now);
         }
 
-        return switch (note.getFrequency()) {
+        // Old format: frequency field
+        if (lastSent == null) return true;
+        String freq = note.getFrequency() != null ? note.getFrequency() : "never";
+        return switch (freq) {
             case "daily"     -> lastSent.isBefore(now.minusDays(1));
             case "weekly"    -> lastSent.isBefore(now.minusWeeks(1));
             case "monthly"   -> lastSent.isBefore(now.minusMonths(1));
