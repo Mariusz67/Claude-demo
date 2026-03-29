@@ -36,7 +36,7 @@ public class EmailService {
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://api.resend.com/emails"))
-                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Authorization", "Bearer " + apiKey.trim())
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
                     .build();
