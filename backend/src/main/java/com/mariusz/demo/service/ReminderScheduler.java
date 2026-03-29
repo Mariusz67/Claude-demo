@@ -23,8 +23,8 @@ public class ReminderScheduler {
         this.emailService = emailService;
     }
 
-    // Runs every hour
-    @Scheduled(fixedRate = 3_600_000)
+    // Runs every 5 minutes
+    @Scheduled(fixedRate = 300_000)
     public void processReminders() {
         List<Note> reminders = noteRepository.findAllActiveReminders();
         log.info("Checking {} active reminder(s)", reminders.size());
