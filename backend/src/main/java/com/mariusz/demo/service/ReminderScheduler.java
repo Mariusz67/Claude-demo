@@ -31,8 +31,7 @@ public class ReminderScheduler {
         log.info("Checking {} active reminder(s)", reminders.size());
 
         for (Note note : reminders) {
-            if (isDue(note, now)) {
-                emailService.sendReminder(note.getUserEmail(), note.getText());
+            if (isDue(note, now) && emailService.sendReminder(note.getUserEmail(), note.getText())) {
                 note.setLastSentAt(now);
                 noteRepository.save(note);
             }

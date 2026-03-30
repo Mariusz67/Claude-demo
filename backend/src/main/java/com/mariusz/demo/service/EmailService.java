@@ -11,13 +11,16 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 
 @Service
 public class EmailService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailService.class);
 
-    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${resend.api.key}")
@@ -26,7 +29,7 @@ public class EmailService {
     @Value("${mail.from}")
     private String from;
 
-    public void sendReminder(String to, String noteText) {
+    public boolean sendReminder(String to, String noteText) {
         try {
             ObjectNode payload = objectMapper.createObjectNode();
             payload.put("from", from);
@@ -38,6 +41,7 @@ public class EmailService {
                     .uri(URI.create("https://api.resend.com/emails"))
                     .header("Authorization", "Bearer " + apiKey.trim())
                     .header("Content-Type", "application/json")
+                    .timeout(Duration.ofSeconds(15))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
                     .build();
 
@@ -45,11 +49,14 @@ public class EmailService {
 
             if (response.statusCode() >= 200 && response.statusCode() < 300) {
                 log.info("Reminder sent to {}", to);
+                return true;
             } else {
                 log.error("Failed to send reminder to {}: HTTP {} - {}", to, response.statusCode(), response.body());
+                return false;
             }
         } catch (Exception e) {
             log.error("Failed to send reminder to {}: {}", to, e.getMessage());
+            return false;
         }
     }
 
