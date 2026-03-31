@@ -288,7 +288,7 @@
         }
 
         .note-card.type-reminder {
-            border-left-color: #ffc107;
+            border-left-color: #e65100;
         }
 
         .note-header {
@@ -324,8 +324,8 @@
         }
 
         .note-type.type-reminder {
-            background: #fff8e1;
-            color: #ff8f00;
+            background: #ffe0b2;
+            color: #e65100;
         }
 
         .note-frequency,
@@ -339,11 +339,45 @@
             gap: 5px;
         }
 
+        .note-actions .btn-edit {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .note-actions .btn-edit:hover {
+            background: #e0a800;
+        }
+
         .note-text {
             color: #333;
             line-height: 1.5;
             white-space: pre-wrap;
             word-break: break-word;
+            display: -webkit-box;
+            -webkit-line-clamp: 5;
+            line-clamp: 5;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .note-text.expanded {
+            display: block;
+            -webkit-line-clamp: unset;
+            line-clamp: unset;
+        }
+
+        .expand-btn {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            font-size: 0.85rem;
+            padding: 4px 0;
+            margin-top: 4px;
+        }
+
+        .expand-btn:hover {
+            text-decoration: underline;
         }
 
         .note-attachment {
@@ -631,14 +665,38 @@
                             <span class="note-date">${formatDate(note.createdAt)}</span>
                         </div>
                         <div class="note-actions">
-                            <button class="btn btn-secondary btn-small" onclick="editNote(${note.id})">Edit</button>
+                            <button class="btn btn-edit btn-small" onclick="editNote(${note.id})">Edit</button>
                             <button class="btn btn-danger btn-small" onclick="deleteNote(${note.id})">Delete</button>
                         </div>
                     </div>
-                    <div class="note-text">${escapeHtml(note.text || '')}</div>
+                    <div class="note-text" id="text-${note.id}">${escapeHtml(note.text || '')}</div>
+                    <button class="expand-btn" id="expand-${note.id}" onclick="toggleExpand(${note.id})" style="display:none;">&#9660; Show more</button>
                     ${note.attachmentName ? `<div class="note-attachment">Attachment: ${escapeHtml(note.attachmentName)}</div>` : ''}
                 </div>`;
             }).join('');
+
+            // Show expand buttons only for texts that overflow 5 lines
+            requestAnimationFrame(() => {
+                filteredNotes.forEach(note => {
+                    const el = document.getElementById('text-' + note.id);
+                    const btn = document.getElementById('expand-' + note.id);
+                    if (el && btn && el.scrollHeight > el.clientHeight) {
+                        btn.style.display = 'inline-block';
+                    }
+                });
+            });
+        }
+
+        function toggleExpand(id) {
+            const el = document.getElementById('text-' + id);
+            const btn = document.getElementById('expand-' + id);
+            if (el.classList.contains('expanded')) {
+                el.classList.remove('expanded');
+                btn.innerHTML = '&#9660; Show more';
+            } else {
+                el.classList.add('expanded');
+                btn.innerHTML = '&#9650; Show less';
+            }
         }
 
         function formatDate(dateStr) {
