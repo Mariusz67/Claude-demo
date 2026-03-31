@@ -42,14 +42,75 @@
         .note-form {
             background: #f8f9fa;
             padding: 20px;
-            border-radius: 8px;
+            border-radius: 12px;
             margin-bottom: 30px;
         }
 
         .note-form h2 {
             color: #333;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
             font-size: 1.2rem;
+        }
+
+        /* Type tiles */
+        .type-tiles {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .type-tile {
+            flex: 1;
+            padding: 18px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            background: white;
+            user-select: none;
+        }
+
+        .type-tile:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.15);
+        }
+
+        .type-tile.active-memo {
+            border-color: #28a745;
+            background: #e8f5e9;
+        }
+
+        .type-tile.active-reminder {
+            border-color: #ffc107;
+            background: #fff8e1;
+        }
+
+        .tile-icon {
+            font-size: 1.8rem;
+            margin-bottom: 6px;
+        }
+
+        .tile-label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.95rem;
+        }
+
+        /* Type-specific fields */
+        .type-fields {
+            display: none;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .type-fields.visible {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-6px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
 
         .form-row {
@@ -81,6 +142,32 @@
 
         .form-group.full-width {
             flex-basis: 100%;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: flex-end;
+            padding-bottom: 4px;
+        }
+
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .repeat-interval {
+            display: none;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .repeat-interval.visible {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
         }
 
         .btn {
@@ -146,6 +233,10 @@
             border-radius: 8px;
             padding: 15px;
             border-left: 4px solid var(--primary);
+        }
+
+        .note-card.type-note {
+            border-left-color: var(--primary);
         }
 
         .note-card.type-memo {
@@ -258,42 +349,57 @@
         <div class="note-form">
             <h2 id="formTitle">Add New Note</h2>
             <input type="hidden" id="noteId">
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="noteType">Type</label>
-                    <select id="noteType" required onchange="onTypeChange()">
-                        <option value="">-- Select type --</option>
-                        <option value="note">Note</option>
-                        <option value="memo">Memo</option>
-                        <option value="reminder">Reminder</option>
-                    </select>
+            <input type="hidden" id="noteType">
+
+            <!-- Type selection tiles -->
+            <div class="type-tiles" id="typeTiles">
+                <div class="type-tile" id="tile-memo" onclick="selectType('memo')">
+                    <div class="tile-icon">📝</div>
+                    <div class="tile-label">Memo</div>
                 </div>
-                <div class="form-group" id="frequencyGroup">
-                    <label for="noteFrequency">Frequency</label>
-                    <select id="noteFrequency">
-                        <option value="never">Never</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="quarterly">Quarterly</option>
-                        <option value="yearly">Yearly</option>
-                    </select>
+                <div class="type-tile" id="tile-reminder" onclick="selectType('reminder')">
+                    <div class="tile-icon">🔔</div>
+                    <div class="tile-label">Reminder</div>
                 </div>
             </div>
-            <!-- Reminder-specific options -->
-            <div id="reminderOptions" style="display:none;">
+
+            <!-- Memo fields -->
+            <div class="type-fields" id="memoFields">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="noteFrequency">Frequency</label>
+                        <select id="noteFrequency">
+                            <option value="never">Never</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="quarterly">Quarterly</option>
+                            <option value="yearly">Yearly</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="memoText">Text (max 10000 characters)</label>
+                        <textarea id="memoText" maxlength="10000" placeholder="Enter your memo text..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reminder fields -->
+            <div class="type-fields" id="reminderFields">
                 <div class="form-row">
                     <div class="form-group">
                         <label for="reminderAt">Reminder date &amp; time</label>
                         <input type="datetime-local" id="reminderAt">
                     </div>
-                    <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:4px;">
-                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                            <input type="checkbox" id="repeatUntilDeleted"> Repeat until deleted
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" id="repeatUntilDeleted" onchange="toggleRepeatInterval()"> Repeat
                         </label>
                     </div>
                 </div>
-                <div class="form-row">
+                <div class="repeat-interval" id="repeatInterval">
                     <div class="form-group">
                         <label for="repeatDays">Days</label>
                         <input type="number" id="repeatDays" value="0" min="0">
@@ -302,21 +408,18 @@
                         <label for="repeatHours">Hours</label>
                         <input type="number" id="repeatHours" value="0" min="0">
                     </div>
-                    <div class="form-group">
-                        <label for="repeatQuarters">Quarters (15 min)</label>
-                        <input type="number" id="repeatQuarters" value="0" min="0">
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="reminderText">Text (max 10000 characters)</label>
+                        <textarea id="reminderText" maxlength="10000" placeholder="Enter your reminder text..."></textarea>
                     </div>
                 </div>
             </div>
-            <div class="form-row">
-                <div class="form-group full-width">
-                    <label for="noteText">Text (max 10000 characters)</label>
-                    <textarea id="noteText" maxlength="10000" placeholder="Enter your note text..."></textarea>
-                </div>
-            </div>
-            <div class="form-buttons">
-                <button class="btn btn-primary" onclick="saveNote()">Save Note</button>
-                <button class="btn btn-secondary" onclick="clearForm()" style="display: none;" id="cancelBtn">Cancel</button>
+
+            <div class="form-buttons" id="formButtons" style="display:none;">
+                <button class="btn btn-primary" onclick="saveNote()">Save</button>
+                <button class="btn btn-secondary" onclick="clearForm()" id="cancelBtn">Cancel</button>
             </div>
         </div>
 
@@ -324,10 +427,9 @@
         <div class="notes-section">
             <h2>My Notes</h2>
             <div class="notes-filter">
-                <button class="filter-btn active" onclick="filterNotes('all')">All</button>
-                <button class="filter-btn" onclick="filterNotes('note')">Notes</button>
-                <button class="filter-btn" onclick="filterNotes('memo')">Memos</button>
-                <button class="filter-btn" onclick="filterNotes('reminder')">Reminders</button>
+                <button class="filter-btn active" onclick="filterNotes('all', event)">All</button>
+                <button class="filter-btn" onclick="filterNotes('memo', event)">Memos</button>
+                <button class="filter-btn" onclick="filterNotes('reminder', event)">Reminders</button>
             </div>
             <div class="notes-list" id="notesList">
                 <div class="empty-message">Loading notes...</div>
@@ -336,7 +438,6 @@
     </div>
 
     <script>
-        // Configuration
         const BASE_URL = window.location.hostname === 'localhost'
             ? 'http://localhost:8081'
             : 'https://pretty-illumination-production.up.railway.app';
@@ -351,41 +452,37 @@
             return { 'Authorization': 'Bearer ' + sessionStorage.getItem('token') };
         }
 
-        // Check if user is logged in
         if (!sessionStorage.getItem('loggedIn') || sessionStorage.getItem('userRole') !== 'user') {
             sessionStorage.clear();
             window.location.href = 'index.html';
         }
 
-        // Initialize
         userEmail = sessionStorage.getItem('userEmail');
         const userName = sessionStorage.getItem('userName');
         if (userName) {
             document.getElementById('userName').textContent = userName;
         }
 
-        // Load notes on page load
         loadNotes();
 
-        function onTypeChange() {
-            const type = document.getElementById('noteType').value;
-            const frequencyGroup = document.getElementById('frequencyGroup');
-            const reminderOptions = document.getElementById('reminderOptions');
+        function selectType(type) {
+            document.getElementById('noteType').value = type;
 
-            if (type === 'note') {
-                frequencyGroup.style.display = 'none';
-                reminderOptions.style.display = 'none';
-            } else if (type === 'memo') {
-                frequencyGroup.style.display = '';
-                document.getElementById('noteFrequency').value = 'weekly';
-                reminderOptions.style.display = 'none';
-            } else if (type === 'reminder') {
-                frequencyGroup.style.display = 'none';
-                reminderOptions.style.display = '';
-            } else {
-                frequencyGroup.style.display = '';
-                reminderOptions.style.display = 'none';
-            }
+            // Update tile highlight
+            document.querySelectorAll('.type-tile').forEach(t => {
+                t.classList.remove('active-memo', 'active-reminder');
+            });
+            document.getElementById('tile-' + type).classList.add('active-' + type);
+
+            // Show/hide fields
+            document.getElementById('memoFields').classList.toggle('visible', type === 'memo');
+            document.getElementById('reminderFields').classList.toggle('visible', type === 'reminder');
+            document.getElementById('formButtons').style.display = 'flex';
+        }
+
+        function toggleRepeatInterval() {
+            const checked = document.getElementById('repeatUntilDeleted').checked;
+            document.getElementById('repeatInterval').classList.toggle('visible', checked);
         }
 
         function showMessage(text, type) {
@@ -393,9 +490,7 @@
             msg.textContent = text;
             msg.className = 'message ' + type;
             msg.style.display = 'block';
-            setTimeout(() => {
-                msg.style.display = 'none';
-            }, 3000);
+            setTimeout(() => { msg.style.display = 'none'; }, 3000);
         }
 
         async function loadNotes() {
@@ -408,7 +503,6 @@
                     showMessage('Failed to load notes', 'error');
                 }
             } catch (error) {
-                console.error('Error loading notes:', error);
                 showMessage('Cannot connect to server', 'error');
             }
         }
@@ -426,7 +520,6 @@
                 return;
             }
 
-            // Sort by created_at descending
             filteredNotes.sort((a, b) => {
                 if (!a.createdAt) return 1;
                 if (!b.createdAt) return -1;
@@ -443,7 +536,7 @@
                     }
                     if (note.repeatUntilDeleted) {
                         const parts = [];
-                        if (note.repeatDays) parts.push(`${note.repeatDays}d`);
+                        if (note.repeatDays)  parts.push(`${note.repeatDays}d`);
                         if (note.repeatHours) parts.push(`${note.repeatHours}h`);
                         if (note.repeatQuarters) parts.push(`${note.repeatQuarters}q`);
                         metaExtra += `<span class="note-frequency">repeats every ${parts.length ? parts.join(' ') : '—'}</span>`;
@@ -471,7 +564,6 @@
         function formatDate(dateStr) {
             if (!dateStr) return '';
             try {
-                // Append Z if no timezone info so browser treats it as UTC
                 const normalized = /Z|[+-]\d{2}:\d{2}$/.test(dateStr) ? dateStr : dateStr + 'Z';
                 const date = new Date(normalized);
                 return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -480,7 +572,6 @@
             }
         }
 
-        // Convert UTC datetime string from server to local datetime-local input value
         function utcToLocalInput(utcStr) {
             if (!utcStr) return '';
             const normalized = /Z|[+-]\d{2}:\d{2}$/.test(utcStr) ? utcStr : utcStr + 'Z';
@@ -495,7 +586,7 @@
             return div.innerHTML;
         }
 
-        function filterNotes(type) {
+        function filterNotes(type, event) {
             currentFilter = type;
             document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
@@ -505,51 +596,44 @@
         async function saveNote() {
             const noteId = document.getElementById('noteId').value;
             const type = document.getElementById('noteType').value;
-            const text = document.getElementById('noteText').value;
 
-            if (!text.trim()) {
-                showMessage('Please enter note text', 'error');
+            if (!type) {
+                showMessage('Please select a type', 'error');
                 return;
             }
 
-            const noteData = {
-                userEmail: userEmail,
-                type: type,
-                text: text
-            };
+            const text = type === 'memo'
+                ? document.getElementById('memoText').value
+                : document.getElementById('reminderText').value;
 
-            if (type === 'note') {
-                noteData.frequency = 'never';
-            } else if (type === 'memo') {
+            if (!text.trim()) {
+                showMessage('Please enter text', 'error');
+                return;
+            }
+
+            const noteData = { userEmail, type, text };
+
+            if (type === 'memo') {
                 noteData.frequency = document.getElementById('noteFrequency').value;
             } else if (type === 'reminder') {
                 noteData.frequency = 'never';
                 const reminderAtVal = document.getElementById('reminderAt').value;
-                // Convert local time to UTC before sending to server
                 noteData.reminderAt = reminderAtVal ? new Date(reminderAtVal).toISOString().slice(0, 19) : null;
                 noteData.repeatUntilDeleted = document.getElementById('repeatUntilDeleted').checked;
                 noteData.repeatDays = parseInt(document.getElementById('repeatDays').value) || 0;
                 noteData.repeatHours = parseInt(document.getElementById('repeatHours').value) || 0;
-                noteData.repeatQuarters = parseInt(document.getElementById('repeatQuarters').value) || 0;
+                noteData.repeatQuarters = 0;
             }
 
             try {
-                let response;
-                if (noteId) {
-                    // Update existing note
-                    response = await fetch(`${NOTES_URL}/${noteId}`, {
-                        method: 'PUT',
+                const response = await fetch(
+                    noteId ? `${NOTES_URL}/${noteId}` : NOTES_URL,
+                    {
+                        method: noteId ? 'PUT' : 'POST',
                         headers: { 'Content-Type': 'application/json', ...authHeaders() },
                         body: JSON.stringify(noteData)
-                    });
-                } else {
-                    // Create new note
-                    response = await fetch(NOTES_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-                        body: JSON.stringify(noteData)
-                    });
-                }
+                    }
+                );
 
                 if (response.ok) {
                     showMessage(noteId ? 'Note updated successfully' : 'Note created successfully', 'success');
@@ -559,7 +643,6 @@
                     showMessage('Failed to save note', 'error');
                 }
             } catch (error) {
-                console.error('Error saving note:', error);
                 showMessage('Cannot connect to server', 'error');
             }
         }
@@ -568,29 +651,27 @@
             const note = allNotes.find(n => n.id === id);
             if (!note) return;
 
+            // Treat legacy "note" type as memo
+            const type = note.type === 'note' ? 'memo' : note.type;
+
             document.getElementById('noteId').value = note.id;
-            document.getElementById('noteType').value = note.type;
-            document.getElementById('noteText').value = note.text || '';
+            selectType(type);
 
-            onTypeChange();
-
-            if (note.type === 'memo') {
-                document.getElementById('noteFrequency').value = note.frequency || 'weekly';
-            } else if (note.type === 'reminder') {
+            if (type === 'memo') {
+                document.getElementById('noteFrequency').value = note.frequency || 'never';
+                document.getElementById('memoText').value = note.text || '';
+            } else if (type === 'reminder') {
                 if (note.reminderAt) {
-                    // Convert UTC from server back to local time for the input
                     document.getElementById('reminderAt').value = utcToLocalInput(note.reminderAt);
                 }
                 document.getElementById('repeatUntilDeleted').checked = !!note.repeatUntilDeleted;
+                toggleRepeatInterval();
                 document.getElementById('repeatDays').value = note.repeatDays || 0;
                 document.getElementById('repeatHours').value = note.repeatHours || 0;
-                document.getElementById('repeatQuarters').value = note.repeatQuarters || 0;
+                document.getElementById('reminderText').value = note.text || '';
             }
 
             document.getElementById('formTitle').textContent = 'Edit Note';
-            document.getElementById('cancelBtn').style.display = 'inline-block';
-
-            // Scroll to form
             document.querySelector('.note-form').scrollIntoView({ behavior: 'smooth' });
         }
 
@@ -610,7 +691,6 @@
                     showMessage('Failed to delete note', 'error');
                 }
             } catch (error) {
-                console.error('Error deleting note:', error);
                 showMessage('Cannot connect to server', 'error');
             }
         }
@@ -619,16 +699,18 @@
             document.getElementById('noteId').value = '';
             document.getElementById('noteType').value = '';
             document.getElementById('noteFrequency').value = 'never';
-            document.getElementById('noteText').value = '';
+            document.getElementById('memoText').value = '';
             document.getElementById('reminderAt').value = '';
             document.getElementById('repeatUntilDeleted').checked = false;
             document.getElementById('repeatDays').value = 0;
             document.getElementById('repeatHours').value = 0;
-            document.getElementById('repeatQuarters').value = 0;
-            document.getElementById('frequencyGroup').style.display = '';
-            document.getElementById('reminderOptions').style.display = 'none';
+            document.getElementById('reminderText').value = '';
+            document.getElementById('repeatInterval').classList.remove('visible');
+            document.getElementById('memoFields').classList.remove('visible');
+            document.getElementById('reminderFields').classList.remove('visible');
+            document.getElementById('formButtons').style.display = 'none';
+            document.querySelectorAll('.type-tile').forEach(t => t.classList.remove('active-memo', 'active-reminder'));
             document.getElementById('formTitle').textContent = 'Add New Note';
-            document.getElementById('cancelBtn').style.display = 'none';
         }
 
         function logout() {
