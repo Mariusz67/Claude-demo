@@ -153,10 +153,17 @@
         .checkbox-group label {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             cursor: pointer;
             font-size: 0.9rem;
             font-weight: 500;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            accent-color: #ffc107;
         }
 
         .repeat-interval {
@@ -168,6 +175,43 @@
             display: flex;
             gap: 15px;
             margin-bottom: 15px;
+        }
+
+        /* Custom datetime picker */
+        .datetime-picker {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        .datetime-picker input[type="date"] {
+            flex: 1;
+            min-width: 150px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }
+
+        .time-picker {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .time-picker select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            appearance: auto;
+        }
+
+        .time-picker .separator {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #555;
         }
 
         .btn {
@@ -390,8 +434,15 @@
             <div class="type-fields" id="reminderFields">
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="reminderAt">Reminder date &amp; time</label>
-                        <input type="datetime-local" id="reminderAt">
+                        <label>Reminder date &amp; time</label>
+                        <div class="datetime-picker">
+                            <input type="date" id="reminderDate">
+                            <div class="time-picker">
+                                <select id="reminderHour"></select>
+                                <span class="separator">:</span>
+                                <select id="reminderMinute"></select>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group checkbox-group">
                         <label>
@@ -463,18 +514,47 @@
             document.getElementById('userName').textContent = userName;
         }
 
+        // Populate hour/minute dropdowns
+        (function initTimePickers() {
+            const hourSel = document.getElementById('reminderHour');
+            const minSel  = document.getElementById('reminderMinute');
+            for (let h = 0; h < 24; h++) {
+                const opt = document.createElement('option');
+                opt.value = String(h).padStart(2, '0');
+                opt.textContent = String(h).padStart(2, '0');
+                hourSel.appendChild(opt);
+            }
+            for (let m = 0; m < 60; m++) {
+                const opt = document.createElement('option');
+                opt.value = String(m).padStart(2, '0');
+                opt.textContent = String(m).padStart(2, '0');
+                minSel.appendChild(opt);
+            }
+            // Default: tomorrow at 08:00
+            setDefaultReminderDateTime();
+        })();
+
+        function setDefaultReminderDateTime() {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const y = tomorrow.getFullYear();
+            const m = String(tomorrow.getMonth() + 1).padStart(2, '0');
+            const d = String(tomorrow.getDate()).padStart(2, '0');
+            document.getElementById('reminderDate').value = `${y}-${m}-${d}`;
+            document.getElementById('reminderHour').value = '08';
+            document.getElementById('reminderMinute').value = '00';
+        }
+
         loadNotes();
 
         function selectType(type) {
             document.getElementById('noteType').value = type;
 
-            // Update tile highlight
             document.querySelectorAll('.type-tile').forEach(t => {
                 t.classList.remove('active-memo', 'active-reminder');
             });
             document.getElementById('tile-' + type).classList.add('active-' + type);
 
-            // Show/hide fields
             document.getElementById('memoFields').classList.toggle('visible', type === 'memo');
             document.getElementById('reminderFields').classList.toggle('visible', type === 'reminder');
             document.getElementById('formButtons').style.display = 'flex';
@@ -572,14 +652,6 @@
             }
         }
 
-        function utcToLocalInput(utcStr) {
-            if (!utcStr) return '';
-            const normalized = /Z|[+-]\d{2}:\d{2}$/.test(utcStr) ? utcStr : utcStr + 'Z';
-            const d = new Date(normalized);
-            const pad = n => String(n).padStart(2, '0');
-            return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        }
-
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
@@ -591,6 +663,27 @@
             document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
             renderNotes();
+        }
+
+        // Build a local Date from the date/hour/minute pickers, then return UTC ISO string (no trailing Z)
+        function getPickerAsUTC() {
+            const dateVal = document.getElementById('reminderDate').value;
+            const hour    = document.getElementById('reminderHour').value;
+            const minute  = document.getElementById('reminderMinute').value;
+            if (!dateVal) return null;
+            const local = new Date(`${dateVal}T${hour}:${minute}:00`);
+            return local.toISOString().slice(0, 19);
+        }
+
+        // Set the date/hour/minute pickers from a UTC datetime string
+        function setPickerFromUTC(utcStr) {
+            if (!utcStr) { setDefaultReminderDateTime(); return; }
+            const normalized = /Z|[+-]\d{2}:\d{2}$/.test(utcStr) ? utcStr : utcStr + 'Z';
+            const d = new Date(normalized);
+            const pad = n => String(n).padStart(2, '0');
+            document.getElementById('reminderDate').value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+            document.getElementById('reminderHour').value = pad(d.getHours());
+            document.getElementById('reminderMinute').value = pad(d.getMinutes());
         }
 
         async function saveNote() {
@@ -617,8 +710,7 @@
                 noteData.frequency = document.getElementById('noteFrequency').value;
             } else if (type === 'reminder') {
                 noteData.frequency = 'never';
-                const reminderAtVal = document.getElementById('reminderAt').value;
-                noteData.reminderAt = reminderAtVal ? new Date(reminderAtVal).toISOString().slice(0, 19) : null;
+                noteData.reminderAt = getPickerAsUTC();
                 noteData.repeatUntilDeleted = document.getElementById('repeatUntilDeleted').checked;
                 noteData.repeatDays = parseInt(document.getElementById('repeatDays').value) || 0;
                 noteData.repeatHours = parseInt(document.getElementById('repeatHours').value) || 0;
@@ -651,7 +743,6 @@
             const note = allNotes.find(n => n.id === id);
             if (!note) return;
 
-            // Treat legacy "note" type as memo
             const type = note.type === 'note' ? 'memo' : note.type;
 
             document.getElementById('noteId').value = note.id;
@@ -661,9 +752,7 @@
                 document.getElementById('noteFrequency').value = note.frequency || 'never';
                 document.getElementById('memoText').value = note.text || '';
             } else if (type === 'reminder') {
-                if (note.reminderAt) {
-                    document.getElementById('reminderAt').value = utcToLocalInput(note.reminderAt);
-                }
+                setPickerFromUTC(note.reminderAt);
                 document.getElementById('repeatUntilDeleted').checked = !!note.repeatUntilDeleted;
                 toggleRepeatInterval();
                 document.getElementById('repeatDays').value = note.repeatDays || 0;
@@ -700,7 +789,7 @@
             document.getElementById('noteType').value = '';
             document.getElementById('noteFrequency').value = 'never';
             document.getElementById('memoText').value = '';
-            document.getElementById('reminderAt').value = '';
+            setDefaultReminderDateTime();
             document.getElementById('repeatUntilDeleted').checked = false;
             document.getElementById('repeatDays').value = 0;
             document.getElementById('repeatHours').value = 0;
