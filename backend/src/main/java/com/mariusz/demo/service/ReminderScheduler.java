@@ -9,6 +9,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Component
@@ -30,7 +31,7 @@ public class ReminderScheduler {
     // Cleanup expired password reset tokens every hour
     @Scheduled(fixedRate = 3_600_000)
     public void cleanupExpiredTokens() {
-        resetTokenRepository.deleteExpired(LocalDateTime.now());
+        resetTokenRepository.deleteExpired(LocalDateTime.now(ZoneOffset.UTC));
     }
 
     // Runs every 5 minutes

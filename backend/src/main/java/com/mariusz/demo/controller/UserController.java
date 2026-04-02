@@ -15,6 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -265,10 +266,10 @@ public class UserController {
         // Delete any existing tokens for this user
         resetTokenRepository.deleteByUserEmail(email.trim().toLowerCase());
 
-        // Generate token, expires in 15 minutes
+        // Generate token, expires in 15 minutes (UTC)
         String token = UUID.randomUUID().toString();
         PasswordResetToken resetToken = new PasswordResetToken(
-                email.trim().toLowerCase(), token, LocalDateTime.now().plusMinutes(15));
+                email.trim().toLowerCase(), token, LocalDateTime.now(ZoneOffset.UTC).plusMinutes(15));
         resetTokenRepository.save(resetToken);
 
         // Send email with reset link
@@ -298,7 +299,7 @@ public class UserController {
         }
 
         Optional<PasswordResetToken> tokenOpt = resetTokenRepository.findByToken(token);
-        if (tokenOpt.isEmpty() || tokenOpt.get().getExpiresAt().isBefore(LocalDateTime.now())) {
+        if (tokenOpt.isEmpty() || tokenOpt.get().getExpiresAt().isBefore(LocalDateTime.now(ZoneOffset.UTC))) {
             // Clean up expired token if found
             tokenOpt.ifPresent(t -> resetTokenRepository.delete(t));
             response.put("success", false);
