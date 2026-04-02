@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Password - MemoBee</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .reset-container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 0.9rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group input {
+            padding: 12px;
+        }
+
+        .btn-reset {
+            width: 100%;
+            padding: 14px;
+            margin-top: 10px;
+        }
+
+        .error-message {
+            background: #fab1a0;
+            color: #d63031;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .success-message {
+            background: #b2f5c8;
+            color: #1a7a3c;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .back-link a {
+            color: #6c63ff;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="reset-container">
+        <h1>Set New Password</h1>
+        <p class="subtitle">Enter your new password below</p>
+
+        <div id="errorMessage" class="error-message"></div>
+        <div id="successMessage" class="success-message"></div>
+
+        <form id="resetForm" onsubmit="handleReset(event)">
+            <div class="form-group">
+                <label for="newPassword">New Password</label>
+                <input
+                    type="password"
+                    id="newPassword"
+                    required
+                    minlength="8"
+                    placeholder="At least 8 characters"
+                    autocomplete="new-password"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword">Confirm Password</label>
+                <input
+                    type="password"
+                    id="confirmPassword"
+                    required
+                    placeholder="Repeat your password"
+                    autocomplete="new-password"
+                >
+            </div>
+
+            <button type="submit" class="btn btn-reset">Reset Password</button>
+        </form>
+
+        <div class="back-link">
+            <a href="index.html">Back to Login</a>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = window.location.hostname === 'localhost'
+            ? 'http://localhost:8081'
+            : 'https://pretty-illumination-production.up.railway.app';
+
+        const RESET_URL = BASE_URL + '/api/users/reset-password-token';
+
+        // Get token from URL
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+
+        if (!token) {
+            document.getElementById('resetForm').style.display = 'none';
+            const err = document.getElementById('errorMessage');
+            err.textContent = 'Invalid reset link. Please request a new one.';
+            err.style.display = 'block';
+        }
+
+        async function handleReset(event) {
+            event.preventDefault();
+
+            const errorMessage = document.getElementById('errorMessage');
+            const successMessage = document.getElementById('successMessage');
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const form = document.getElementById('resetForm');
+
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+
+            if (newPassword !== confirmPassword) {
+                errorMessage.textContent = 'Passwords do not match';
+                errorMessage.style.display = 'block';
+                return;
+            }
+
+            form.classList.add('loading');
+
+            try {
+                const response = await fetch(RESET_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, newPassword })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    successMessage.textContent = data.message;
+                    successMessage.style.display = 'block';
+                    form.style.display = 'none';
+                    setTimeout(() => { window.location.href = 'index.html'; }, 2000);
+                } else {
+                    errorMessage.textContent = data.message || 'Reset failed. Please try again.';
+                    errorMessage.style.display = 'block';
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Cannot connect to server. Please try again later.';
+                errorMessage.style.display = 'block';
+            } finally {
+                form.classList.remove('loading');
+            }
+        }
+    </script>
+</body>
+</html>

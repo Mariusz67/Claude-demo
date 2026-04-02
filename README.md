@@ -16,10 +16,13 @@ A production-ready full-stack web application demonstrating modern development p
 - ✅ JWT authentication (24h tokens, HMAC-SHA signed)
 - ✅ Role-based access control (admin / user)
 - ✅ BCrypt password hashing
-- ✅ Notes / Memos / Reminders CRUD for regular users
-- ✅ Type-specific form behaviour (note / memo / reminder)
-- ✅ Email reminders via Resend SMTP (memobee.eu domain)
-- ✅ Scheduled reminder processing (hourly, supports repeat intervals)
+- ✅ Memos / Reminders CRUD for regular users (Note type removed, merged with Memo)
+- ✅ Tile-based type selection UI (memo / reminder)
+- ✅ Custom date picker with calendar + hour/minute selectors
+- ✅ Email reminders via Resend HTTP API (memobee.eu domain)
+- ✅ Scheduled reminder processing (every 5 min, supports repeat intervals with days/hours)
+- ✅ HTTP timeout protection (10s connect, 15s request) to prevent scheduler blocking
+- ✅ Resilient sending (only marks as sent on success, retries on next tick)
 - ✅ UTC-aware datetime handling (correct timezone display)
 - ✅ XSS protection via HTML escaping
 - ✅ Cache-control headers (no stale frontend in browser)
@@ -55,7 +58,7 @@ A production-ready full-stack web application demonstrating modern development p
 ## 🛠️ Tech Stack
 
 ### Backend
-- **Framework**: Spring Boot 3.2.1
+- **Framework**: Spring Boot 3.5.0
 - **Language**: Java 17
 - **Database**: PostgreSQL
 - **ORM**: Spring Data JDBC
@@ -91,8 +94,8 @@ Claude demo/
 │   │   │   │   │   ├── UserRepository.java
 │   │   │   │   │   └── NoteRepository.java
 │   │   │   │   ├── service/
-│   │   │   │   │   ├── EmailService.java       (Resend SMTP sending)
-│   │   │   │   │   └── ReminderScheduler.java  (hourly reminder processing)
+│   │   │   │   │   ├── EmailService.java       (Resend HTTP API sending)
+│   │   │   │   │   └── ReminderScheduler.java  (5-min reminder processing)
 │   │   │   │   └── security/
 │   │   │   │       ├── JwtUtil.java
 │   │   │   │       ├── JwtFilter.java
@@ -265,16 +268,15 @@ DELETE /api/notes/{id}           delete note
 
 **Note body fields by type:**
 
-| Field | Note | Memo | Reminder |
-|-------|------|------|----------|
-| `type` | `"note"` | `"memo"` | `"reminder"` |
-| `text` | ✅ | ✅ | ✅ |
-| `frequency` | always `"never"` | `never`/`daily`/`weekly`/`monthly`/`quarterly`/`yearly` (default: `weekly`) | always `"never"` |
-| `reminderAt` | — | — | ISO datetime UTC (e.g. `"2026-03-29T12:00:00"`) |
-| `repeatUntilDeleted` | — | — | `true` / `false` |
-| `repeatDays` | — | — | integer ≥ 0 (default `0`) |
-| `repeatHours` | — | — | integer ≥ 0 (default `0`) |
-| `repeatQuarters` | — | — | integer ≥ 0 (15 min units, default `0`) |
+| Field | Memo | Reminder |
+|-------|------|----------|
+| `type` | `"memo"` | `"reminder"` |
+| `text` | ✅ | ✅ |
+| `frequency` | `never`/`daily`/`weekly`/`monthly`/`quarterly`/`yearly` (default: `never`) | always `"never"` |
+| `reminderAt` | — | ISO datetime UTC (e.g. `"2026-03-29T12:00:00"`) |
+| `repeatUntilDeleted` | — | `true` (repeat) / `false` (one-time) |
+| `repeatDays` | — | integer ≥ 0 (default `0`) |
+| `repeatHours` | — | integer ≥ 0 (default `0`) |
 
 ## 🧪 Testing
 
@@ -309,7 +311,7 @@ CREATE TABLE notes (
     id BIGSERIAL PRIMARY KEY,
     user_email VARCHAR(255) NOT NULL,
     created_at TEXT,
-    type VARCHAR(20) NOT NULL,           -- note | memo | reminder
+    type VARCHAR(20) NOT NULL,           -- memo | reminder
     text TEXT,
     frequency VARCHAR(20) DEFAULT 'never', -- memo: never/daily/weekly/monthly/quarterly/yearly
     attachment_name VARCHAR(255),
@@ -321,7 +323,7 @@ CREATE TABLE notes (
     repeat_until_deleted BOOLEAN DEFAULT FALSE,
     repeat_days INTEGER DEFAULT 0,
     repeat_hours INTEGER DEFAULT 0,
-    repeat_quarters INTEGER DEFAULT 0,   -- units of 15 minutes
+    repeat_quarters INTEGER DEFAULT 0,   -- legacy, no longer used in UI
     FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE
 );
 ```
@@ -339,7 +341,7 @@ CREATE TABLE notes (
 | `PGUSER` | Database user | `${{Postgres.PGUSER}}` |
 | `PGPASSWORD` | Database password | `${{Postgres.PGPASSWORD}}` |
 | `JWT_SECRET` | HMAC-SHA signing key (min 32 chars) | `your-random-secret` |
-| `RESEND_API_KEY` | Resend SMTP API key for sending emails | `re_...` |
+| `RESEND_API_KEY` | Resend HTTP API key for sending emails | `re_...` |
 | `MAIL_FROM` | Sender address (verified domain required) | `reminder@memobee.eu` |
 
 ### Frontend Service (None required)
@@ -422,6 +424,6 @@ This project is open source and available for educational purposes.
 
 ## 🙏 Acknowledgments
 
-- Built with Claude Sonnet 4.5 assistance
+- Built with Claude Sonnet 4.6 / Opus 4.6 assistance
 - Deployed on Railway
 - CI/CD via GitHub Actions

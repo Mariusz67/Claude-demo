@@ -131,7 +131,31 @@
             <button type="submit" class="btn btn-login">Login</button>
 
             <div class="toggle-link">
+                <a onclick="showForgotPassword()">Forgot password?</a>
+            </div>
+            <div class="toggle-link">
                 No account? <a onclick="showRegister()">Register here</a>
+            </div>
+        </form>
+
+        <!-- Forgot Password Form -->
+        <form id="forgotForm" onsubmit="handleForgotPassword(event)" style="display:none">
+            <div class="form-group">
+                <label for="forgotEmail">Email Address</label>
+                <input
+                    type="email"
+                    id="forgotEmail"
+                    name="forgotEmail"
+                    required
+                    placeholder="Enter your email"
+                    autocomplete="email"
+                >
+            </div>
+
+            <button type="submit" class="btn btn-login">Send Reset Link</button>
+
+            <div class="toggle-link">
+                <a onclick="showLogin()">Back to Login</a>
             </div>
         </form>
 
@@ -202,19 +226,31 @@
 
         const LOGIN_URL = BASE_URL + '/api/users/login';
         const REGISTER_URL = BASE_URL + '/api/users/register';
+        const FORGOT_URL = BASE_URL + '/api/users/forgot-password';
 
-        function showRegister() {
+        function hideAllForms() {
             document.getElementById('loginForm').style.display = 'none';
-            document.getElementById('registerForm').style.display = 'block';
-            document.getElementById('formTitle').textContent = 'Register';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('forgotForm').style.display = 'none';
             clearMessages();
         }
 
+        function showRegister() {
+            hideAllForms();
+            document.getElementById('registerForm').style.display = 'block';
+            document.getElementById('formTitle').textContent = 'Register';
+        }
+
         function showLogin() {
-            document.getElementById('registerForm').style.display = 'none';
+            hideAllForms();
             document.getElementById('loginForm').style.display = 'block';
             document.getElementById('formTitle').textContent = 'Login';
-            clearMessages();
+        }
+
+        function showForgotPassword() {
+            hideAllForms();
+            document.getElementById('forgotForm').style.display = 'block';
+            document.getElementById('formTitle').textContent = 'Reset Password';
         }
 
         function clearMessages() {
@@ -265,6 +301,35 @@
                 }
             } catch (error) {
                 console.error('Register error:', error);
+                errorMessage.textContent = 'Cannot connect to server. Please try again later.';
+                errorMessage.style.display = 'block';
+            } finally {
+                form.classList.remove('loading');
+            }
+        }
+
+        async function handleForgotPassword(event) {
+            event.preventDefault();
+            const form = document.getElementById('forgotForm');
+            const errorMessage = document.getElementById('errorMessage');
+            const successMessage = document.getElementById('successMessage');
+            const email = document.getElementById('forgotEmail').value;
+
+            clearMessages();
+            form.classList.add('loading');
+
+            try {
+                const response = await fetch(FORGOT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+
+                const data = await response.json();
+                successMessage.textContent = data.message || 'If an account with that email exists, a reset link has been sent.';
+                successMessage.style.display = 'block';
+                form.reset();
+            } catch (error) {
                 errorMessage.textContent = 'Cannot connect to server. Please try again later.';
                 errorMessage.style.display = 'block';
             } finally {

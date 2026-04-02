@@ -40,7 +40,8 @@ public class SecurityConfig {
                 // Allow CORS preflight requests
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // Public endpoints
-                .requestMatchers("/api/users/login", "/api/users/health", "/api/users/register").permitAll()
+                .requestMatchers("/api/users/login", "/api/users/health", "/api/users/register",
+                                 "/api/users/forgot-password", "/api/users/reset-password-token").permitAll()
                 // Admin-only: all notes list
                 .requestMatchers(HttpMethod.GET, "/api/notes").hasRole("ADMIN")
                 // Admin-only: user management

@@ -1,20 +1,26 @@
 package com.mariusz.demo.controller;
 
+import com.mariusz.demo.model.PasswordResetToken;
 import com.mariusz.demo.model.User;
+import com.mariusz.demo.repository.PasswordResetTokenRepository;
 import com.mariusz.demo.repository.UserRepository;
 import com.mariusz.demo.security.JwtUtil;
 import com.mariusz.demo.security.LoginRateLimiter;
+import com.mariusz.demo.service.EmailService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 @RestController
@@ -23,20 +29,29 @@ import java.util.regex.Pattern;
 public class UserController {
 
     private final UserRepository userRepository;
+    private final PasswordResetTokenRepository resetTokenRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final LoginRateLimiter rateLimiter;
+    private final EmailService emailService;
+
+    @Value("${app.frontend.url:http://localhost:8000}")
+    private String frontendUrl;
 
     // Admin password pattern: min 15 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special char
     private static final Pattern ADMIN_PASSWORD_PATTERN = Pattern.compile(
         "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?]).{15,}$"
     );
 
-    public UserController(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder, JwtUtil jwtUtil, LoginRateLimiter rateLimiter) {
+    public UserController(UserRepository userRepository, PasswordResetTokenRepository resetTokenRepository,
+                           BCryptPasswordEncoder passwordEncoder, JwtUtil jwtUtil,
+                           LoginRateLimiter rateLimiter, EmailService emailService) {
         this.userRepository = userRepository;
+        this.resetTokenRepository = resetTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.rateLimiter = rateLimiter;
+        this.emailService = emailService;
     }
 
     // GET all users (admin only - enforced by SecurityConfig)
@@ -226,6 +241,90 @@ public class UserController {
         response.put("message", "Account created successfully");
         response.put("user", saved);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    // POST forgot password (public) - sends reset email
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, Object>> forgotPassword(@RequestBody Map<String, String> body) {
+        Map<String, Object> response = new HashMap<>();
+        String email = body.get("email");
+
+        // Always return success to prevent email enumeration
+        response.put("success", true);
+        response.put("message", "If an account with that email exists, a reset link has been sent.");
+
+        if (email == null || email.isBlank()) {
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        }
+
+        Optional<User> userOpt = userRepository.findByEmail(email.trim().toLowerCase());
+        if (userOpt.isEmpty()) {
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        }
+
+        // Delete any existing tokens for this user
+        resetTokenRepository.deleteByUserEmail(email.trim().toLowerCase());
+
+        // Generate token, expires in 15 minutes
+        String token = UUID.randomUUID().toString();
+        PasswordResetToken resetToken = new PasswordResetToken(
+                email.trim().toLowerCase(), token, LocalDateTime.now().plusMinutes(15));
+        resetTokenRepository.save(resetToken);
+
+        // Send email with reset link
+        String resetLink = frontendUrl + "/reset.html?token=" + token;
+        emailService.sendPasswordReset(email.trim().toLowerCase(), resetLink);
+
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    // POST reset password with token (public)
+    @PostMapping("/reset-password-token")
+    public ResponseEntity<Map<String, Object>> resetPasswordWithToken(@RequestBody Map<String, String> body) {
+        Map<String, Object> response = new HashMap<>();
+        String token = body.get("token");
+        String newPassword = body.get("newPassword");
+
+        if (token == null || token.isBlank() || newPassword == null || newPassword.isBlank()) {
+            response.put("success", false);
+            response.put("message", "Token and new password are required");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+
+        if (newPassword.length() < 8) {
+            response.put("success", false);
+            response.put("message", "Password must be at least 8 characters");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+
+        Optional<PasswordResetToken> tokenOpt = resetTokenRepository.findByToken(token);
+        if (tokenOpt.isEmpty() || tokenOpt.get().getExpiresAt().isBefore(LocalDateTime.now())) {
+            // Clean up expired token if found
+            tokenOpt.ifPresent(t -> resetTokenRepository.delete(t));
+            response.put("success", false);
+            response.put("message", "Invalid or expired reset link. Please request a new one.");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+
+        PasswordResetToken resetToken = tokenOpt.get();
+        Optional<User> userOpt = userRepository.findByEmail(resetToken.getUserEmail());
+        if (userOpt.isEmpty()) {
+            resetTokenRepository.delete(resetToken);
+            response.put("success", false);
+            response.put("message", "User not found");
+            return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+        }
+
+        User user = userOpt.get();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        // Delete used token
+        resetTokenRepository.delete(resetToken);
+
+        response.put("success", true);
+        response.put("message", "Password has been reset successfully. You can now log in.");
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     // GET health check (public)

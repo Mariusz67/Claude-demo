@@ -2,6 +2,7 @@ package com.mariusz.demo.service;
 
 import com.mariusz.demo.model.Note;
 import com.mariusz.demo.repository.NoteRepository;
+import com.mariusz.demo.repository.PasswordResetTokenRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -17,10 +18,19 @@ public class ReminderScheduler {
 
     private final NoteRepository noteRepository;
     private final EmailService emailService;
+    private final PasswordResetTokenRepository resetTokenRepository;
 
-    public ReminderScheduler(NoteRepository noteRepository, EmailService emailService) {
+    public ReminderScheduler(NoteRepository noteRepository, EmailService emailService,
+                              PasswordResetTokenRepository resetTokenRepository) {
         this.noteRepository = noteRepository;
         this.emailService = emailService;
+        this.resetTokenRepository = resetTokenRepository;
+    }
+
+    // Cleanup expired password reset tokens every hour
+    @Scheduled(fixedRate = 3_600_000)
+    public void cleanupExpiredTokens() {
+        resetTokenRepository.deleteExpired(LocalDateTime.now());
     }
 
     // Runs every 5 minutes
