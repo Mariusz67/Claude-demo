@@ -16,6 +16,7 @@ A production-ready full-stack web application demonstrating modern development p
 - ✅ JWT authentication (24h tokens, HMAC-SHA signed)
 - ✅ Role-based access control (admin / user)
 - ✅ BCrypt password hashing
+- ✅ Self-service password reset via email (15-min expiring tokens)
 - ✅ Memos / Reminders CRUD for regular users (Note type removed, merged with Memo)
 - ✅ Tile-based type selection UI (memo / reminder)
 - ✅ Custom date picker with calendar + hour/minute selectors
@@ -89,17 +90,20 @@ Claude demo/
 │   │   │   │   │   └── NoteController.java
 │   │   │   │   ├── model/
 │   │   │   │   │   ├── User.java
-│   │   │   │   │   └── Note.java
+│   │   │   │   │   ├── Note.java
+│   │   │   │   │   └── PasswordResetToken.java
 │   │   │   │   ├── repository/
 │   │   │   │   │   ├── UserRepository.java
-│   │   │   │   │   └── NoteRepository.java
+│   │   │   │   │   ├── NoteRepository.java
+│   │   │   │   │   └── PasswordResetTokenRepository.java
 │   │   │   │   ├── service/
 │   │   │   │   │   ├── EmailService.java       (Resend HTTP API sending)
 │   │   │   │   │   └── ReminderScheduler.java  (5-min reminder processing)
 │   │   │   │   └── security/
 │   │   │   │       ├── JwtUtil.java
 │   │   │   │       ├── JwtFilter.java
-│   │   │   │       └── SecurityConfig.java
+│   │   │   │       ├── SecurityConfig.java
+│   │   │   │       └── LoginRateLimiter.java
 │   │   │   └── resources/
 │   │   │       ├── application.properties
 │   │   │       └── schema.sql
@@ -107,9 +111,10 @@ Claude demo/
 │   ├── nixpacks.toml
 │   └── railway.json
 ├── frontend/
-│   ├── index.html       (login / self-registration page)
+│   ├── index.html       (login / self-registration / forgot password)
 │   ├── dashboard.html   (admin panel - user management)
-│   ├── user.html        (user panel - notes / memos / reminders)
+│   ├── user.html        (user panel - memos / reminders)
+│   ├── reset.html       (password reset page)
 │   └── _headers         (Railway cache-control headers)
 ├── .github/
 │   └── workflows/
@@ -242,7 +247,10 @@ Admin-only endpoints additionally require the `admin` role in the token.
 
 ```http
 GET  /api/users/health
-POST /api/users/login          body: { email, password }
+POST /api/users/login              body: { email, password }
+POST /api/users/register           body: { name, email, password }
+POST /api/users/forgot-password    body: { email }
+POST /api/users/reset-password-token  body: { token, newPassword }
 ```
 
 ### Admin only
@@ -326,6 +334,14 @@ CREATE TABLE notes (
     repeat_quarters INTEGER DEFAULT 0,   -- legacy, no longer used in UI
     FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE
 );
+
+CREATE TABLE password_reset_tokens (
+    id BIGSERIAL PRIMARY KEY,
+    user_email VARCHAR(255) NOT NULL,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    expires_at TIMESTAMP NOT NULL,       -- UTC, 15-minute validity
+    FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE
+);
 ```
 
 ## 🔐 Environment Variables Reference
@@ -343,6 +359,7 @@ CREATE TABLE notes (
 | `JWT_SECRET` | HMAC-SHA signing key (min 32 chars) | `your-random-secret` |
 | `RESEND_API_KEY` | Resend HTTP API key for sending emails | `re_...` |
 | `MAIL_FROM` | Sender address (verified domain required) | `reminder@memobee.eu` |
+| `FRONTEND_URL` | Frontend base URL (for password reset links) | `https://your-frontend.up.railway.app` |
 
 ### Frontend Service (None required)
 
