@@ -81,6 +81,7 @@ public class UserController {
         if (user.getPassword() != null) {
             user.setPassword(passwordEncoder.encode(user.getPassword()));
         }
+        user.setEncryptionSalt(UUID.randomUUID().toString());
         User saved = userRepository.save(user);
         saved.setPassword(null);
         return new ResponseEntity<>(saved, HttpStatus.CREATED);
@@ -241,6 +242,7 @@ public class UserController {
         user.setEmail(email.trim().toLowerCase());
         user.setPassword(passwordEncoder.encode(password));
         user.setRole("user");
+        user.setEncryptionSalt(UUID.randomUUID().toString());
 
         User saved = userRepository.save(user);
         saved.setPassword(null);

@@ -210,6 +210,14 @@
                 >
             </div>
 
+            <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-bottom:15px;font-size:0.82rem;color:#856404;">
+                <strong>&#9888; Encryption notice:</strong> Your memos and reminders will be end-to-end encrypted using a unique key tied to your account. <strong>If you lose access to your account and cannot log in, your encrypted data will be permanently unrecoverable.</strong>
+                <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer;font-weight:600;">
+                    <input type="checkbox" id="encryptionAck" style="width:18px;height:18px;accent-color:#ffc107;cursor:pointer;">
+                    I understand and accept
+                </label>
+            </div>
+
             <button type="submit" class="btn btn-login">Create Account</button>
 
             <div class="toggle-link">
@@ -275,6 +283,12 @@
 
             if (password !== confirm) {
                 errorMessage.textContent = 'Passwords do not match';
+                errorMessage.style.display = 'block';
+                return;
+            }
+
+            if (!document.getElementById('encryptionAck').checked) {
+                errorMessage.textContent = 'Please acknowledge the encryption notice to continue';
                 errorMessage.style.display = 'block';
                 return;
             }
@@ -372,7 +386,9 @@
                     sessionStorage.setItem('userEmail', email);
                     sessionStorage.setItem('userRole', data.role);
                     sessionStorage.setItem('userName', data.user.name);
-                    sessionStorage.setItem('encKeyData', JSON.stringify({ password, email }));
+                    if (data.user.encryptionSalt) {
+                        sessionStorage.setItem('encryptionSalt', data.user.encryptionSalt);
+                    }
 
                     // Redirect based on role
                     if (data.role === 'admin') {

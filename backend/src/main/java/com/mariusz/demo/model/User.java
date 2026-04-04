@@ -13,6 +13,7 @@ public class User {
     private String email;
     private String password;
     private String role = "user";
+    private String encryptionSalt;
 
     // Constructors
     public User() {
@@ -68,6 +69,14 @@ public class User {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public String getEncryptionSalt() {
+        return encryptionSalt;
+    }
+
+    public void setEncryptionSalt(String encryptionSalt) {
+        this.encryptionSalt = encryptionSalt;
     }
 
     @Override

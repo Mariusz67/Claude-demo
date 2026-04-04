@@ -518,7 +518,7 @@
         <!-- Change Password -->
         <div class="note-form" id="changePasswordSection" style="display: none;">
             <h2>Change Password</h2>
-            <p style="font-size: 0.85rem; color: #666; margin-bottom: 15px;">Your encrypted notes will be automatically re-encrypted with the new password.</p>
+            <p style="font-size: 0.85rem; color: #666; margin-bottom: 15px;">Changing your password does not affect your encrypted notes.</p>
             <div class="form-row">
                 <div class="form-group">
                     <label for="oldPassword">Current password</label>
@@ -566,30 +566,24 @@
         let currentFilter = 'all';
         let encKey = null;
 
-        // --- Client-side encryption (AES-256-GCM + PBKDF2) ---
-        async function deriveKey(password, salt) {
+        // --- Client-side encryption (AES-256-GCM, key from immutable salt) ---
+        async function initEncryptionKey() {
+            const salt = sessionStorage.getItem('encryptionSalt');
+            if (!salt) {
+                // No encryption salt — old account or admin; skip encryption
+                return;
+            }
             const enc = new TextEncoder();
             const keyMaterial = await crypto.subtle.importKey(
-                'raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']
+                'raw', enc.encode(salt), 'PBKDF2', false, ['deriveKey']
             );
-            return crypto.subtle.deriveKey(
-                { name: 'PBKDF2', salt: enc.encode(salt), iterations: 600000, hash: 'SHA-256' },
+            encKey = await crypto.subtle.deriveKey(
+                { name: 'PBKDF2', salt: enc.encode('memobee-e2e-' + salt), iterations: 600000, hash: 'SHA-256' },
                 keyMaterial,
                 { name: 'AES-GCM', length: 256 },
                 false,
                 ['encrypt', 'decrypt']
             );
-        }
-
-        async function initEncryptionKey() {
-            const stored = sessionStorage.getItem('encKeyData');
-            if (!stored) {
-                sessionStorage.clear();
-                window.location.href = 'index.html';
-                return;
-            }
-            const { password, email } = JSON.parse(stored);
-            encKey = await deriveKey(password, 'memobee-e2e-' + email);
         }
 
         function arrayBufToBase64(buf) {
@@ -703,8 +697,7 @@
             div.id = 'decryptWarning';
             div.style.cssText = 'background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:0.88rem;color:#856404;';
             div.innerHTML = '<strong>&#9888; Warning:</strong> ' + count + ' encrypted note(s) could not be decrypted. ' +
-                'This happens when your password was reset externally (e.g. via "Forgot Password"). ' +
-                'Those notes are permanently unreadable with your current password. You may delete them and create new ones.';
+                'This may indicate corrupted data. You may delete them and create new ones.';
             const container = document.querySelector('.container');
             const noteForm = document.querySelector('.note-form');
             container.insertBefore(div, noteForm);
@@ -1010,40 +1003,6 @@
             }
 
             try {
-                // 1. Re-encrypt all notes: decrypt with old key, encrypt with new key
-                const newKey = await deriveKey(newPwd, 'memobee-e2e-' + userEmail);
-                const bulkUpdates = [];
-
-                for (const note of allNotes) {
-                    if (!note.text || !note.text.startsWith(ENC_PREFIX)) continue;
-                    // note._decryptedText was already decrypted with old key at load time
-                    const plaintext = note._decryptedText;
-                    if (!plaintext || plaintext.startsWith('[Unable to decrypt')) continue;
-
-                    // Encrypt with new key
-                    const iv = crypto.getRandomValues(new Uint8Array(12));
-                    const enc = new TextEncoder();
-                    const ciphertext = await crypto.subtle.encrypt(
-                        { name: 'AES-GCM', iv }, newKey, enc.encode(plaintext)
-                    );
-                    const newEncText = ENC_PREFIX + arrayBufToBase64(iv.buffer) + '.' + arrayBufToBase64(ciphertext);
-                    bulkUpdates.push({ id: String(note.id), text: newEncText });
-                }
-
-                // 2. Send re-encrypted texts to server
-                if (bulkUpdates.length > 0) {
-                    const bulkResp = await fetch(NOTES_URL + '/bulk-update-text', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-                        body: JSON.stringify(bulkUpdates)
-                    });
-                    if (!bulkResp.ok) {
-                        showMessage('Failed to re-encrypt notes. Password not changed.', 'error');
-                        return;
-                    }
-                }
-
-                // 3. Change password on server
                 const resp = await fetch(BASE_URL + '/api/users/change-password', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', ...authHeaders() },
@@ -1056,14 +1015,9 @@
                     return;
                 }
 
-                // 4. Update session with new token and new encryption key
                 sessionStorage.setItem('token', data.token);
-                sessionStorage.setItem('encKeyData', JSON.stringify({ password: newPwd, email: userEmail }));
-                encKey = newKey;
-
                 toggleChangePassword();
-                showMessage('Password changed and notes re-encrypted successfully', 'success');
-                loadNotes();
+                showMessage('Password changed successfully', 'success');
             } catch (error) {
                 showMessage('Error changing password: ' + error.message, 'error');
             }

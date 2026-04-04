@@ -31,6 +31,9 @@ ALTER TABLE notes ADD COLUMN IF NOT EXISTS repeat_days INTEGER DEFAULT 0;
 ALTER TABLE notes ADD COLUMN IF NOT EXISTS repeat_hours INTEGER DEFAULT 0;
 ALTER TABLE notes ADD COLUMN IF NOT EXISTS repeat_quarters INTEGER DEFAULT 0;
 
+-- Encryption salt for E2E encryption (immutable per user)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS encryption_salt VARCHAR(255);
+
 -- Password reset tokens
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
     id BIGSERIAL PRIMARY KEY,
