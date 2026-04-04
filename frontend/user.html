@@ -416,7 +416,10 @@
     <div class="container">
         <div class="header">
             <h1>User board of <span class="user-name" id="userName">User</span></h1>
-            <button class="btn logout-btn" onclick="logout()">Logout</button>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button class="btn logout-btn" onclick="archiveNotes()">Archive</button>
+                <button class="btn logout-btn" onclick="logout()">Logout</button>
+            </div>
         </div>
 
         <div id="message" class="message"></div>
@@ -856,6 +859,66 @@
             document.getElementById('formButtons').style.display = 'none';
             document.querySelectorAll('.type-tile').forEach(t => t.classList.remove('active-memo', 'active-reminder'));
             document.getElementById('formTitle').textContent = 'Add New Note';
+        }
+
+        function archiveNotes() {
+            if (allNotes.length === 0) {
+                showMessage('No notes to archive', 'error');
+                return;
+            }
+
+            const lines = [];
+            lines.push('MemoBee Archive');
+            lines.push('Exported: ' + new Date().toLocaleString());
+            lines.push('User: ' + (userName || userEmail));
+            lines.push('='.repeat(50));
+
+            const memos = allNotes.filter(n => n.type === 'memo');
+            const reminders = allNotes.filter(n => n.type === 'reminder');
+
+            if (memos.length) {
+                lines.push('');
+                lines.push('MEMOS (' + memos.length + ')');
+                lines.push('-'.repeat(50));
+                memos.forEach((note, i) => {
+                    lines.push('');
+                    lines.push('[' + (i + 1) + '] ' + (note.frequency && note.frequency !== 'never' ? '(' + note.frequency + ')' : ''));
+                    lines.push('Created: ' + formatDate(note.createdAt));
+                    lines.push(note.text || '');
+                    if (note.attachmentName) lines.push('Attachment: ' + note.attachmentName);
+                });
+            }
+
+            if (reminders.length) {
+                lines.push('');
+                lines.push('REMINDERS (' + reminders.length + ')');
+                lines.push('-'.repeat(50));
+                reminders.forEach((note, i) => {
+                    lines.push('');
+                    lines.push('[' + (i + 1) + '] Reminder at: ' + formatDate(note.reminderAt));
+                    if (note.repeatUntilDeleted) {
+                        const parts = [];
+                        if (note.repeatDays) parts.push(note.repeatDays + 'd');
+                        if (note.repeatHours) parts.push(note.repeatHours + 'h');
+                        lines.push('Repeats every: ' + (parts.length ? parts.join(' ') : '—'));
+                    }
+                    lines.push('Created: ' + formatDate(note.createdAt));
+                    lines.push(note.text || '');
+                    if (note.attachmentName) lines.push('Attachment: ' + note.attachmentName);
+                });
+            }
+
+            const content = lines.join('\n');
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'memobee-archive-' + new Date().toISOString().slice(0, 10) + '.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showMessage('Archive downloaded', 'success');
         }
 
         function logout() {
