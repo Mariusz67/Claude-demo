@@ -451,6 +451,10 @@
             <!-- Memo fields -->
             <div class="type-fields" id="memoFields">
                 <div class="form-row">
+                    <div class="form-group" style="flex:2;">
+                        <label for="memoTitle">Title</label>
+                        <input type="text" id="memoTitle" maxlength="255" placeholder="Enter a title...">
+                    </div>
                     <div class="form-group">
                         <label for="noteFrequency">Frequency</label>
                         <select id="noteFrequency">
@@ -473,6 +477,12 @@
 
             <!-- Reminder fields -->
             <div class="type-fields" id="reminderFields">
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="reminderTitle">Title (sent in reminder email)</label>
+                        <input type="text" id="reminderTitle" maxlength="255" placeholder="Enter a title — this is what you'll see in the email...">
+                    </div>
+                </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Reminder date &amp; time</label>
@@ -784,6 +794,7 @@
                             <button class="btn btn-danger btn-small" onclick="deleteNote(${note.id})">Delete</button>
                         </div>
                     </div>
+                    ${note.title ? `<div style="font-weight:600;font-size:1.05rem;margin-bottom:6px;color:#333;">${escapeHtml(note.title)}</div>` : ''}
                     <div class="note-text" id="text-${note.id}">${escapeHtml(note._decryptedText || '')}</div>
                     <button class="expand-btn" id="expand-${note.id}" onclick="toggleExpand(${note.id})" style="display:none;">&#9660; Show more</button>
                     ${note.attachmentName ? `<div class="note-attachment">Attachment: ${escapeHtml(note.attachmentName)}</div>` : ''}
@@ -868,17 +879,20 @@
                 return;
             }
 
+            const title = type === 'memo'
+                ? document.getElementById('memoTitle').value.trim()
+                : document.getElementById('reminderTitle').value.trim();
             const text = type === 'memo'
                 ? document.getElementById('memoText').value
                 : document.getElementById('reminderText').value;
 
-            if (!text.trim()) {
-                showMessage('Please enter text', 'error');
+            if (!title) {
+                showMessage('Please enter a title', 'error');
                 return;
             }
 
-            const encryptedText = await encryptText(text);
-            const noteData = { userEmail, type, text: encryptedText };
+            const encryptedText = text.trim() ? await encryptText(text) : '';
+            const noteData = { userEmail, type, title, text: encryptedText };
 
             if (type === 'memo') {
                 noteData.frequency = document.getElementById('noteFrequency').value;
@@ -923,9 +937,11 @@
             selectType(type);
 
             if (type === 'memo') {
+                document.getElementById('memoTitle').value = note.title || '';
                 document.getElementById('noteFrequency').value = note.frequency || 'never';
                 document.getElementById('memoText').value = note._decryptedText || '';
             } else if (type === 'reminder') {
+                document.getElementById('reminderTitle').value = note.title || '';
                 setPickerFromUTC(note.reminderAt);
                 document.getElementById('repeatUntilDeleted').checked = !!note.repeatUntilDeleted;
                 toggleRepeatInterval();
@@ -961,8 +977,10 @@
         function clearForm() {
             document.getElementById('noteId').value = '';
             document.getElementById('noteType').value = '';
+            document.getElementById('memoTitle').value = '';
             document.getElementById('noteFrequency').value = 'never';
             document.getElementById('memoText').value = '';
+            document.getElementById('reminderTitle').value = '';
             setDefaultReminderDateTime();
             document.getElementById('repeatUntilDeleted').checked = false;
             document.getElementById('repeatDays').value = 0;
@@ -1044,9 +1062,9 @@
                 lines.push('-'.repeat(50));
                 memos.forEach((note, i) => {
                     lines.push('');
-                    lines.push('[' + (i + 1) + '] ' + (note.frequency && note.frequency !== 'never' ? '(' + note.frequency + ')' : ''));
+                    lines.push('[' + (i + 1) + '] ' + (note.title || '(no title)') + (note.frequency && note.frequency !== 'never' ? ' (' + note.frequency + ')' : ''));
                     lines.push('Created: ' + formatDate(note.createdAt));
-                    lines.push(note._decryptedText || '');
+                    if (note._decryptedText) lines.push(note._decryptedText);
                     if (note.attachmentName) lines.push('Attachment: ' + note.attachmentName);
                 });
             }
@@ -1057,7 +1075,8 @@
                 lines.push('-'.repeat(50));
                 reminders.forEach((note, i) => {
                     lines.push('');
-                    lines.push('[' + (i + 1) + '] Reminder at: ' + formatDate(note.reminderAt));
+                    lines.push('[' + (i + 1) + '] ' + (note.title || '(no title)'));
+                    lines.push('Reminder at: ' + formatDate(note.reminderAt));
                     if (note.repeatUntilDeleted) {
                         const parts = [];
                         if (note.repeatDays) parts.push(note.repeatDays + 'd');
@@ -1065,7 +1084,7 @@
                         lines.push('Repeats every: ' + (parts.length ? parts.join(' ') : '—'));
                     }
                     lines.push('Created: ' + formatDate(note.createdAt));
-                    lines.push(note._decryptedText || '');
+                    if (note._decryptedText) lines.push(note._decryptedText);
                     if (note.attachmentName) lines.push('Attachment: ' + note.attachmentName);
                 });
             }

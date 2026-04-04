@@ -29,13 +29,15 @@ public class EmailService {
     @Value("${mail.from}")
     private String from;
 
-    public boolean sendReminder(String to, String noteText) {
+    public boolean sendReminder(String to, String title) {
         try {
+            String subject = (title != null && !title.isBlank()) ? title : "Reminder";
             ObjectNode payload = objectMapper.createObjectNode();
             payload.put("from", from);
             payload.put("to", to);
-            payload.put("subject", "Reminder: " + truncate(noteText, 60));
-            payload.put("text", "Hello,\n\nHere is your scheduled reminder:\n\n" + noteText + "\n\nBest regards,\nMemoBee");
+            payload.put("subject", "Reminder: " + truncate(subject, 60));
+            payload.put("text", "Hello,\n\nHere is your scheduled reminder:\n\n" + subject
+                    + "\n\nLog in to MemoBee to see the full details.\n\nBest regards,\nMemoBee");
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://api.resend.com/emails"))

@@ -16,7 +16,12 @@ A production-ready full-stack web application demonstrating modern development p
 - ✅ JWT authentication (24h tokens, HMAC-SHA signed)
 - ✅ Role-based access control (admin / user)
 - ✅ BCrypt password hashing
+- ✅ Client-side AES-256-GCM encryption of memo/reminder text (admins cannot read content)
+- ✅ PBKDF2 key derivation (600,000 iterations, SHA-256) from immutable per-user salt
+- ✅ Encryption warning with mandatory acknowledgement on registration
+- ✅ Self-service password change (old password required, returns new JWT)
 - ✅ Self-service password reset via email (15-min expiring tokens)
+- ✅ Archive feature — download all decrypted notes as a text file
 - ✅ Memos / Reminders CRUD for regular users (Note type removed, merged with Memo)
 - ✅ Tile-based type selection UI (memo / reminder)
 - ✅ Custom date picker with calendar + hour/minute selectors
@@ -24,6 +29,8 @@ A production-ready full-stack web application demonstrating modern development p
 - ✅ Scheduled reminder processing (every 5 min, supports repeat intervals with days/hours)
 - ✅ HTTP timeout protection (10s connect, 15s request) to prevent scheduler blocking
 - ✅ Resilient sending (only marks as sent on success, retries on next tick)
+- ✅ Login rate limiting (IP-based lockout after failed attempts)
+- ✅ Admin dashboard — read-only user list with created date, note count, last login
 - ✅ UTC-aware datetime handling (correct timezone display)
 - ✅ XSS protection via HTML escaping
 - ✅ Cache-control headers (no stale frontend in browser)
@@ -111,9 +118,9 @@ Claude demo/
 │   ├── nixpacks.toml
 │   └── railway.json
 ├── frontend/
-│   ├── index.html       (login / self-registration / forgot password)
-│   ├── dashboard.html   (admin panel - user management)
-│   ├── user.html        (user panel - memos / reminders)
+│   ├── index.html       (login / self-registration with encryption warning / forgot password)
+│   ├── dashboard.html   (admin panel - read-only user list with stats)
+│   ├── user.html        (user panel - encrypted memos / reminders / archive / change password)
 │   ├── reset.html       (password reset page)
 │   └── _headers         (Railway cache-control headers)
 ├── .github/
@@ -253,19 +260,24 @@ POST /api/users/forgot-password    body: { email }
 POST /api/users/reset-password-token  body: { token, newPassword }
 ```
 
+### Authenticated users
+
+```http
+POST /api/users/change-password    body: { email, oldPassword, newPassword }
+```
+
 ### Admin only
 
 ```http
-GET    /api/users              list all users
+GET    /api/users              list all users (includes noteCount, createdAt, lastLoginAt)
 GET    /api/users/{id}
 POST   /api/users              create user: { name, email, password }
 POST   /api/users/admin        create admin user (stricter password rules)
-PUT    /api/users/{id}         update user
-PUT    /api/users/{id}/reset-password   body: { newPassword }
+PUT    /api/users/{id}         update user (name, email only — no password reset)
 DELETE /api/users/{id}
 ```
 
-### Authenticated users
+### Notes (authenticated users)
 
 ```http
 GET    /api/notes/user/{email}   list notes for user
@@ -274,12 +286,13 @@ PUT    /api/notes/{id}           update note (same fields)
 DELETE /api/notes/{id}           delete note
 ```
 
-**Note body fields by type:**
+**Note body fields by type** (text field is encrypted client-side before sending):
 
 | Field | Memo | Reminder |
 |-------|------|----------|
 | `type` | `"memo"` | `"reminder"` |
-| `text` | ✅ | ✅ |
+| `title` | ✅ plaintext | ✅ plaintext — sent in reminder emails |
+| `text` | ✅ encrypted | ✅ encrypted — NOT sent by email |
 | `frequency` | `never`/`daily`/`weekly`/`monthly`/`quarterly`/`yearly` (default: `never`) | always `"never"` |
 | `reminderAt` | — | ISO datetime UTC (e.g. `"2026-03-29T12:00:00"`) |
 | `repeatUntilDeleted` | — | `true` (repeat) / `false` (one-time) |
@@ -312,7 +325,10 @@ CREATE TABLE users (
     name VARCHAR(100) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255),
-    role VARCHAR(50) DEFAULT 'user'
+    role VARCHAR(50) DEFAULT 'user',
+    encryption_salt VARCHAR(255),        -- immutable UUID for client-side encryption key derivation
+    created_at TIMESTAMP,                -- UTC account creation time
+    last_login_at TIMESTAMP              -- UTC last successful login
 );
 
 CREATE TABLE notes (
@@ -320,7 +336,8 @@ CREATE TABLE notes (
     user_email VARCHAR(255) NOT NULL,
     created_at TEXT,
     type VARCHAR(20) NOT NULL,           -- memo | reminder
-    text TEXT,
+    title VARCHAR(255),                  -- plaintext title, used in reminder emails
+    text TEXT,                           -- encrypted client-side (ENC:base64iv.base64ciphertext)
     frequency VARCHAR(20) DEFAULT 'never', -- memo: never/daily/weekly/monthly/quarterly/yearly
     attachment_name VARCHAR(255),
     attachment_type VARCHAR(50),
@@ -418,6 +435,26 @@ GitHub Actions workflow:
 - Validates HTML structure
 - Runs W3C HTML validator
 
+## 🔐 Encryption
+
+Note text is encrypted client-side before being sent to the server. The database only stores ciphertext — admins cannot read user content.
+
+**How it works:**
+1. At registration, a random `encryptionSalt` (UUID) is generated and stored permanently in the database
+2. On login, the salt is loaded into `sessionStorage` and used to derive an AES-256-GCM key via PBKDF2 (600,000 iterations, SHA-256)
+3. Each note's text is encrypted before save and decrypted after fetch
+4. Encrypted text format: `ENC:` prefix + base64(IV) + `.` + base64(ciphertext)
+5. The encryption key survives password changes — only account deletion removes it
+
+**Title vs. Text:**
+- Each note has a plaintext **title** and an encrypted **text** (body)
+- Reminder emails only include the **title** — the encrypted body is never sent by email
+- This ensures email notifications are useful while keeping detailed content private
+
+**Limitations:**
+- The salt is stored server-side, so a database admin with knowledge of the derivation algorithm could theoretically reconstruct the key
+- Note titles are stored in plaintext (visible to admins) — only put sensitive details in the text body
+
 ## 🎯 Future Improvements
 
 - [ ] Token blocklist for immediate logout/revocation
@@ -428,8 +465,8 @@ GitHub Actions workflow:
 - [ ] Add Docker support for local development
 - [ ] Set up staging environment
 - [ ] Add API documentation (Swagger/OpenAPI)
-- [ ] Implement rate limiting
 - [ ] Add monitoring and alerting
+- [ ] SMS/WhatsApp notifications for reminders (Twilio / WhatsApp Business API)
 
 ## 👤 Author
 

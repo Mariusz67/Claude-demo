@@ -21,7 +21,9 @@ public class Note {
 
     private String type; // note, memo, reminder
 
-    private String text; // max 10000 characters
+    private String title; // plaintext title, used in reminder emails
+
+    private String text; // max 10000 characters, encrypted client-side
 
     private String frequency; // never, daily, weekly, monthly, quarterly, yearly
 
@@ -97,6 +99,14 @@ public class Note {
 
     public void setType(String type) {
         this.type = type;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
     }
 
     public String getText() {
