@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/users")
@@ -40,11 +39,6 @@ public class UserController {
 
     @Value("${app.frontend.url:http://localhost:8000}")
     private String frontendUrl;
-
-    // Admin password pattern: min 15 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special char
-    private static final Pattern ADMIN_PASSWORD_PATTERN = Pattern.compile(
-        "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?]).{15,}$"
-    );
 
     public UserController(UserRepository userRepository, PasswordResetTokenRepository resetTokenRepository,
                            NoteRepository noteRepository, BCryptPasswordEncoder passwordEncoder,
@@ -68,46 +62,6 @@ public class UserController {
             u.setNoteCount(noteRepository.countByUserEmail(u.getEmail()));
         });
         return new ResponseEntity<>(users, HttpStatus.OK);
-    }
-
-    // GET user by id (admin only)
-    @GetMapping("/{id}")
-    public ResponseEntity<User> getUserById(@PathVariable Long id) {
-        Optional<User> user = userRepository.findById(id);
-        if (user.isPresent()) {
-            user.get().setPassword(null);
-            return new ResponseEntity<>(user.get(), HttpStatus.OK);
-        }
-        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-    }
-
-    // POST create new user (admin only)
-    @PostMapping
-    public ResponseEntity<User> createUser(@RequestBody User user) {
-        if (user.getPassword() != null) {
-            user.setPassword(passwordEncoder.encode(user.getPassword()));
-        }
-        user.setEncryptionSalt(UUID.randomUUID().toString());
-        user.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
-        User saved = userRepository.save(user);
-        saved.setPassword(null);
-        return new ResponseEntity<>(saved, HttpStatus.CREATED);
-    }
-
-    // PUT update user (admin only)
-    @PutMapping("/{id}")
-    public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody User userDetails) {
-        Optional<User> userData = userRepository.findById(id);
-
-        if (userData.isPresent()) {
-            User user = userData.get();
-            user.setName(userDetails.getName());
-            user.setEmail(userDetails.getEmail());
-            User saved = userRepository.save(user);
-            saved.setPassword(null);
-            return new ResponseEntity<>(saved, HttpStatus.OK);
-        }
-        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
 
     // DELETE user (admin only)
@@ -154,28 +108,6 @@ public class UserController {
         response.put("success", false);
         response.put("message", "Invalid email or password");
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
-    }
-
-    // POST create admin user (admin only)
-    @PostMapping("/admin")
-    public ResponseEntity<Map<String, Object>> createAdmin(@RequestBody User user) {
-        Map<String, Object> response = new HashMap<>();
-
-        if (user.getPassword() == null || !ADMIN_PASSWORD_PATTERN.matcher(user.getPassword()).matches()) {
-            response.put("success", false);
-            response.put("message", "Admin password must be at least 15 characters with 1 uppercase, 1 lowercase, 1 digit, and 1 special character");
-            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-        }
-
-        user.setRole("admin");
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        User saved = userRepository.save(user);
-        saved.setPassword(null);
-
-        response.put("success", true);
-        response.put("message", "Admin created successfully");
-        response.put("user", saved);
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     // POST change password (authenticated user, requires old password)

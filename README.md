@@ -35,6 +35,7 @@ A production-ready full-stack web application demonstrating modern development p
 - ✅ XSS protection via HTML escaping
 - ✅ Cache-control headers (no stale frontend in browser)
 - ✅ Automated HTML quality gates (GitHub Actions)
+- ✅ Backend integration & unit tests (38 tests, CI-ready)
 - ✅ Continuous deployment to Railway
 - ✅ CORS-enabled for cross-origin requests
 - ✅ Health check endpoints
@@ -114,6 +115,14 @@ Claude demo/
 │   │   │   └── resources/
 │   │   │       ├── application.properties
 │   │   │       └── schema.sql
+│   │   └── test/
+│   │       ├── java/com/mariusz/demo/
+│   │       │   ├── SecurityIntegrationTest.java
+│   │       │   └── security/
+│   │       │       ├── JwtUtilTest.java
+│   │       │       └── LoginRateLimiterTest.java
+│   │       └── resources/
+│   │           └── application.properties  (test-only config, no DB required)
 │   ├── pom.xml
 │   ├── nixpacks.toml
 │   └── railway.json
@@ -270,20 +279,20 @@ POST /api/users/change-password    body: { email, oldPassword, newPassword }
 
 ```http
 GET    /api/users              list all users (includes noteCount, createdAt, lastLoginAt)
-GET    /api/users/{id}
-POST   /api/users              create user: { name, email, password }
-POST   /api/users/admin        create admin user (stricter password rules)
-PUT    /api/users/{id}         update user (name, email only — no password reset)
-DELETE /api/users/{id}
+DELETE /api/users/{id}         delete user
 ```
 
-### Notes (authenticated users)
+Admin account is created automatically at startup via `AdminSeeder` when `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables are set.
+
+### Notes (authenticated users — ownership enforced)
+
+Users can only access their own notes. Admins can access any user's notes.
 
 ```http
-GET    /api/notes/user/{email}   list notes for user
-POST   /api/notes                create note (see body fields below)
-PUT    /api/notes/{id}           update note (same fields)
-DELETE /api/notes/{id}           delete note
+GET    /api/notes/user/{email}   list notes for user (own or admin)
+POST   /api/notes                create note (userEmail set from JWT, not request body)
+PUT    /api/notes/{id}           update note (own or admin)
+DELETE /api/notes/{id}           delete note (own or admin)
 ```
 
 **Note body fields by type** (text field is encrypted client-side before sending):
@@ -301,19 +310,43 @@ DELETE /api/notes/{id}           delete note
 
 ## 🧪 Testing
 
+### Backend Tests
+
+Run all 38 backend tests locally:
+```bash
+cd backend
+mvn test
+```
+
+Tests use a dedicated `src/test/resources/application.properties` that disables datasource auto-configuration — no PostgreSQL instance required. All repositories are mocked via `@MockitoBean`.
+
+**Test suites:**
+
+| Suite | Type | Tests | Covers |
+|-------|------|-------|--------|
+| `SecurityIntegrationTest` | Integration (`@SpringBootTest` + MockMvc) | 23 | Public endpoint access, unauthenticated rejection, admin-only authorization, note ownership enforcement, login/registration validation, note input validation |
+| `JwtUtilTest` | Unit | 8 | Token generation, claims extraction, expiration, tampered/invalid/wrong-key tokens |
+| `LoginRateLimiterTest` | Unit | 7 | IP-based blocking after 5 failures, reset on success, IP isolation, lockout timer |
+
 ### Manual API Testing with Postman
 
 1. Import the endpoints above into Postman
 2. Test against: `https://pretty-illumination-production.up.railway.app`
 
-### Automated HTML Quality Gates
+### CI Quality Gates (GitHub Actions)
 
-GitHub Actions automatically validates:
+Both jobs run in parallel on every push/PR to `main`:
+
+**Job: `validate-html`**
 - ✅ HTML file existence
 - ✅ HTML structure (html, head, body tags)
 - ✅ Required meta tags (charset, viewport)
 - ✅ Title tag presence
 - ✅ W3C HTML validation
+
+**Job: `test-backend`**
+- ✅ Java 17 + Maven setup
+- ✅ Runs all backend tests (`mvn test`)
 
 View workflow: `.github/workflows/ci.yml`
 
@@ -374,6 +407,8 @@ CREATE TABLE password_reset_tokens (
 | `PGUSER` | Database user | `${{Postgres.PGUSER}}` |
 | `PGPASSWORD` | Database password | `${{Postgres.PGPASSWORD}}` |
 | `JWT_SECRET` | HMAC-SHA signing key (min 32 chars) | `your-random-secret` |
+| `ADMIN_EMAIL` | Initial admin account email (optional) | `admin@example.com` |
+| `ADMIN_PASSWORD` | Initial admin account password (optional) | `Str0ng!Pass` |
 | `RESEND_API_KEY` | Resend HTTP API key for sending emails | `re_...` |
 | `MAIL_FROM` | Sender address (verified domain required) | `reminder@memobee.eu` |
 | `FRONTEND_URL` | Frontend base URL (for password reset links) | `https://your-frontend.up.railway.app` |
@@ -429,11 +464,17 @@ Spring Boot configuration:
 - Database initialization mode
 - Debug logging
 
+### `backend/src/test/resources/application.properties`
+Test-only Spring Boot configuration:
+- Disables datasource auto-configuration (no PostgreSQL needed)
+- Provides dummy JWT secret and mail settings
+- Allows tests to run in CI without any environment variables
+
 ### `.github/workflows/ci.yml`
 GitHub Actions workflow:
 - Triggers on push/PR to main
-- Validates HTML structure
-- Runs W3C HTML validator
+- Job `validate-html`: validates HTML structure + W3C validation
+- Job `test-backend`: runs all backend tests with Maven
 
 ## 🔐 Encryption
 
@@ -459,7 +500,7 @@ Note text is encrypted client-side before being sent to the server. The database
 
 - [ ] Token blocklist for immediate logout/revocation
 - [ ] Automate Railway configuration with Infrastructure as Code (Terraform/Pulumi)
-- [ ] Add backend unit and integration tests
+- [x] Add backend unit and integration tests (38 tests)
 - [ ] Implement frontend testing (Jest/Cypress)
 - [ ] Implement pagination for large datasets
 - [ ] Add Docker support for local development

@@ -9,7 +9,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,27 +30,6 @@ public class NoteController {
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
     }
 
-    // GET all notes - admin only (enforced by SecurityConfig)
-    @GetMapping
-    public ResponseEntity<List<Note>> getAllNotes() {
-        List<Note> notes = new ArrayList<>();
-        noteRepository.findAll().forEach(notes::add);
-        return new ResponseEntity<>(notes, HttpStatus.OK);
-    }
-
-    // GET note by id - own notes only (or admin)
-    @GetMapping("/{id}")
-    public ResponseEntity<Note> getNoteById(@PathVariable Long id) {
-        Optional<Note> note = noteRepository.findById(id);
-        if (note.isEmpty()) {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-        }
-        if (!isAdmin() && !note.get().getUserEmail().equals(getCurrentUserEmail())) {
-            return new ResponseEntity<>(HttpStatus.FORBIDDEN);
-        }
-        return new ResponseEntity<>(note.get(), HttpStatus.OK);
-    }
-
     // GET notes by user email - own notes only (or admin)
     @GetMapping("/user/{userEmail}")
     public ResponseEntity<List<Note>> getNotesByUserEmail(@PathVariable String userEmail) {
@@ -59,18 +37,6 @@ public class NoteController {
             return new ResponseEntity<>(HttpStatus.FORBIDDEN);
         }
         List<Note> notes = noteRepository.findByUserEmail(userEmail);
-        return new ResponseEntity<>(notes, HttpStatus.OK);
-    }
-
-    // GET notes by user email and type - own notes only (or admin)
-    @GetMapping("/user/{userEmail}/type/{type}")
-    public ResponseEntity<List<Note>> getNotesByUserEmailAndType(
-            @PathVariable String userEmail,
-            @PathVariable String type) {
-        if (!isAdmin() && !userEmail.equals(getCurrentUserEmail())) {
-            return new ResponseEntity<>(HttpStatus.FORBIDDEN);
-        }
-        List<Note> notes = noteRepository.findByUserEmailAndType(userEmail, type);
         return new ResponseEntity<>(notes, HttpStatus.OK);
     }
 

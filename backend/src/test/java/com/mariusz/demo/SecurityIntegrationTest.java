@@ -170,15 +170,6 @@ class SecurityIntegrationTest {
         }
 
         @Test
-        void createUser_asUser_returns403() throws Exception {
-            mockMvc.perform(post("/api/users")
-                            .header("Authorization", "Bearer " + userToken)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"name\":\"New\",\"email\":\"new@test.com\",\"password\":\"pass1234\"}"))
-                    .andExpect(status().isForbidden());
-        }
-
-        @Test
         void deleteUser_asUser_returns403() throws Exception {
             mockMvc.perform(delete("/api/users/1")
                             .header("Authorization", "Bearer " + userToken))
@@ -192,21 +183,6 @@ class SecurityIntegrationTest {
                     .andExpect(status().isNoContent());
         }
 
-        @Test
-        void getAllNotes_asUser_returns403() throws Exception {
-            mockMvc.perform(get("/api/notes")
-                            .header("Authorization", "Bearer " + userToken))
-                    .andExpect(status().isForbidden());
-        }
-
-        @Test
-        void getAllNotes_asAdmin_returns200() throws Exception {
-            when(noteRepository.findAll()).thenReturn(List.of());
-
-            mockMvc.perform(get("/api/notes")
-                            .header("Authorization", "Bearer " + adminToken))
-                    .andExpect(status().isOk());
-        }
     }
 
     // =========================================================================
@@ -215,39 +191,6 @@ class SecurityIntegrationTest {
 
     @Nested
     class NoteOwnership {
-
-        @Test
-        void getNote_ownedByUser_returns200() throws Exception {
-            Note note = new Note("user@test.com", "note", "my note");
-            note.setId(1L);
-            when(noteRepository.findById(1L)).thenReturn(Optional.of(note));
-
-            mockMvc.perform(get("/api/notes/1")
-                            .header("Authorization", "Bearer " + userToken))
-                    .andExpect(status().isOk());
-        }
-
-        @Test
-        void getNote_ownedByOtherUser_returns403() throws Exception {
-            Note note = new Note("other@test.com", "note", "not yours");
-            note.setId(1L);
-            when(noteRepository.findById(1L)).thenReturn(Optional.of(note));
-
-            mockMvc.perform(get("/api/notes/1")
-                            .header("Authorization", "Bearer " + userToken))
-                    .andExpect(status().isForbidden());
-        }
-
-        @Test
-        void getNote_ownedByOtherUser_adminCanAccess() throws Exception {
-            Note note = new Note("other@test.com", "note", "admin can see");
-            note.setId(1L);
-            when(noteRepository.findById(1L)).thenReturn(Optional.of(note));
-
-            mockMvc.perform(get("/api/notes/1")
-                            .header("Authorization", "Bearer " + adminToken))
-                    .andExpect(status().isOk());
-        }
 
         @Test
         void deleteNote_ownedByOtherUser_returns403() throws Exception {
@@ -341,30 +284,6 @@ class SecurityIntegrationTest {
                     .andExpect(status().isBadRequest());
         }
 
-        @Test
-        void createAdmin_weakPassword_returns400() throws Exception {
-            mockMvc.perform(post("/api/users/admin")
-                            .header("Authorization", "Bearer " + adminToken)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"name\":\"Admin2\",\"email\":\"a2@test.com\",\"password\":\"weak\"}"))
-                    .andExpect(status().isBadRequest());
-        }
-
-        @Test
-        void createAdmin_strongPassword_returns201() throws Exception {
-            when(userRepository.save(any(User.class))).thenAnswer(inv -> {
-                User u = inv.getArgument(0);
-                u.setId(2L);
-                return u;
-            });
-
-            mockMvc.perform(post("/api/users/admin")
-                            .header("Authorization", "Bearer " + adminToken)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"name\":\"Admin2\",\"email\":\"a2@test.com\",\"password\":\"Str0ng!Password#2024\"}"))
-                    .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.success").value(true));
-        }
     }
 
     // =========================================================================

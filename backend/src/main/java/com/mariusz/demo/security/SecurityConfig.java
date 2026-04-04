@@ -42,14 +42,8 @@ public class SecurityConfig {
                 // Public endpoints
                 .requestMatchers("/api/users/login", "/api/users/health", "/api/users/register",
                                  "/api/users/forgot-password", "/api/users/reset-password-token").permitAll()
-                // Admin-only: all notes list
-                .requestMatchers(HttpMethod.GET, "/api/notes").hasRole("ADMIN")
                 // Admin-only: user management
                 .requestMatchers(HttpMethod.GET, "/api/users").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.GET, "/api/users/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.POST, "/api/users").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.POST, "/api/users/admin").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/api/users/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMIN")
                 // Everything else requires authentication
                 .anyRequest().authenticated()
