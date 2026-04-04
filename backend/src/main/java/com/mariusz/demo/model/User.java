@@ -1,7 +1,10 @@
 package com.mariusz.demo.model;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.relational.core.mapping.Table;
+
+import java.time.LocalDateTime;
 
 @Table("users")
 public class User {
@@ -14,6 +17,11 @@ public class User {
     private String password;
     private String role = "user";
     private String encryptionSalt;
+    private LocalDateTime createdAt;
+    private LocalDateTime lastLoginAt;
+
+    @Transient
+    private Long noteCount;
 
     // Constructors
     public User() {
@@ -77,6 +85,30 @@ public class User {
 
     public void setEncryptionSalt(String encryptionSalt) {
         this.encryptionSalt = encryptionSalt;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getLastLoginAt() {
+        return lastLoginAt;
+    }
+
+    public void setLastLoginAt(LocalDateTime lastLoginAt) {
+        this.lastLoginAt = lastLoginAt;
+    }
+
+    public Long getNoteCount() {
+        return noteCount;
+    }
+
+    public void setNoteCount(Long noteCount) {
+        this.noteCount = noteCount;
     }
 
     @Override

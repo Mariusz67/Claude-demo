@@ -102,19 +102,6 @@
             color: #d63031;
         }
 
-        .form-section {
-            background: #f8f9fa;
-            padding: 30px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-        }
-
-        .form-section h3 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 1.3rem;
-        }
-
         .btn {
             padding: 12px 30px;
             margin-right: 10px;
@@ -190,27 +177,6 @@
             <button class="btn" onclick="loadUsers()">🔄 Reload Users</button>
             <span id="status" class="status" style="display: none;">Ready</span>
 
-            <div class="form-section">
-                <h3 id="formTitle">Create New User</h3>
-                <form id="userForm" onsubmit="handleSubmit(event)">
-                    <input type="hidden" id="userId" value="">
-                    <div class="form-group">
-                        <label for="userName">Name:</label>
-                        <input type="text" id="userName" required placeholder="Enter full name">
-                    </div>
-                    <div class="form-group">
-                        <label for="userEmail">Email:</label>
-                        <input type="email" id="userEmail" required placeholder="Enter email address">
-                    </div>
-                    <div class="form-group" id="passwordGroup">
-                        <label for="userPassword">Password:</label>
-                        <input type="password" id="userPassword" placeholder="Set initial password">
-                    </div>
-                    <button type="submit" class="btn" id="submitBtn">Create User</button>
-                    <button type="button" class="btn" onclick="resetForm()" style="background: #95a5a6;">Cancel</button>
-                </form>
-            </div>
-
             <div id="userTableContainer">
                 <table id="userTable" style="display: none;">
                     <thead>
@@ -218,6 +184,9 @@
                             <th>ID</th>
                             <th>Name</th>
                             <th>Email</th>
+                            <th>Created</th>
+                            <th>Notes</th>
+                            <th>Last Login</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -334,8 +303,10 @@
                             <td>${user.id}</td>
                             <td>${safeName}</td>
                             <td>${safeEmail}</td>
+                            <td>${formatDate(user.createdAt)}</td>
+                            <td>${user.noteCount != null ? user.noteCount : '—'}</td>
+                            <td>${formatDate(user.lastLoginAt)}</td>
                             <td>
-                                <button class="btn btn-small btn-edit" onclick="editUser(${user.id}, '${safeName}', '${safeEmail}')">Edit</button>
                                 <button class="btn btn-small btn-delete" onclick="deleteUser(${user.id})">Delete</button>
                             </td>
                         `;
@@ -354,64 +325,15 @@
             }
         }
 
-        async function handleSubmit(event) {
-            event.preventDefault();
-
-            const statusEl = document.getElementById('status');
-            const userId = document.getElementById('userId').value;
-            const userName = document.getElementById('userName').value;
-            const userEmail = document.getElementById('userEmail').value;
-            const userPassword = document.getElementById('userPassword').value;
-
-            const userData = {
-                name: userName,
-                email: userEmail
-            };
-
-            if (!userId) {
-                userData.password = userPassword || '1234';
-            }
-
-            statusEl.style.display = 'inline-block';
-            statusEl.textContent = userId ? 'Updating user...' : 'Creating user...';
-            statusEl.className = 'status loading';
-
+        function formatDate(dateStr) {
+            if (!dateStr) return '—';
             try {
-                const url = userId ? `${API_URL}/${userId}` : API_URL;
-                const method = userId ? 'PUT' : 'POST';
-
-                const response = await fetch(url, {
-                    method: method,
-                    headers: { 'Content-Type': 'application/json', ...authHeaders() },
-                    body: JSON.stringify(userData)
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                statusEl.textContent = userId ? '✓ User updated successfully!' : '✓ User created successfully!';
-                statusEl.className = 'status success';
-
-                resetForm();
-                loadUsers();
-            } catch (error) {
-                console.error('Error saving user:', error);
-                statusEl.textContent = '✗ Error: Failed to save user';
-                statusEl.className = 'status error';
+                const normalized = /Z|[+-]\d{2}:\d{2}$/.test(dateStr) ? dateStr : dateStr + 'Z';
+                const d = new Date(normalized);
+                return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch {
+                return dateStr;
             }
-        }
-
-        function editUser(id, name, email) {
-            document.getElementById('formTitle').textContent = 'Edit User';
-            document.getElementById('userId').value = id;
-            document.getElementById('userName').value = name;
-            document.getElementById('userEmail').value = email;
-            document.getElementById('userPassword').value = '';
-            document.getElementById('passwordGroup').style.display = 'none';
-            document.getElementById('submitBtn').textContent = 'Update User';
-
-            document.getElementById('userForm').scrollIntoView({ behavior: 'smooth' });
         }
 
         async function deleteUser(id) {
@@ -443,16 +365,6 @@
                 statusEl.textContent = '✗ Error: Failed to delete user';
                 statusEl.className = 'status error';
             }
-        }
-
-        function resetForm() {
-            document.getElementById('formTitle').textContent = 'Create New User';
-            document.getElementById('userId').value = '';
-            document.getElementById('userName').value = '';
-            document.getElementById('userEmail').value = '';
-            document.getElementById('userPassword').value = '';
-            document.getElementById('passwordGroup').style.display = '';
-            document.getElementById('submitBtn').textContent = 'Create User';
         }
 
         // Update footer with actual backend URL

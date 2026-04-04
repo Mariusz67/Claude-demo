@@ -3,6 +3,7 @@ package com.mariusz.demo.controller;
 import com.mariusz.demo.model.PasswordResetToken;
 import com.mariusz.demo.model.User;
 import com.mariusz.demo.repository.PasswordResetTokenRepository;
+import com.mariusz.demo.repository.NoteRepository;
 import com.mariusz.demo.repository.UserRepository;
 import com.mariusz.demo.security.JwtUtil;
 import com.mariusz.demo.security.LoginRateLimiter;
@@ -31,6 +32,7 @@ public class UserController {
 
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository resetTokenRepository;
+    private final NoteRepository noteRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final LoginRateLimiter rateLimiter;
@@ -45,10 +47,11 @@ public class UserController {
     );
 
     public UserController(UserRepository userRepository, PasswordResetTokenRepository resetTokenRepository,
-                           BCryptPasswordEncoder passwordEncoder, JwtUtil jwtUtil,
-                           LoginRateLimiter rateLimiter, EmailService emailService) {
+                           NoteRepository noteRepository, BCryptPasswordEncoder passwordEncoder,
+                           JwtUtil jwtUtil, LoginRateLimiter rateLimiter, EmailService emailService) {
         this.userRepository = userRepository;
         this.resetTokenRepository = resetTokenRepository;
+        this.noteRepository = noteRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.rateLimiter = rateLimiter;
@@ -60,7 +63,10 @@ public class UserController {
     public ResponseEntity<List<User>> getAllUsers() {
         List<User> users = new ArrayList<>();
         userRepository.findAll().forEach(users::add);
-        users.forEach(u -> u.setPassword(null));
+        users.forEach(u -> {
+            u.setPassword(null);
+            u.setNoteCount(noteRepository.countByUserEmail(u.getEmail()));
+        });
         return new ResponseEntity<>(users, HttpStatus.OK);
     }
 
@@ -82,6 +88,7 @@ public class UserController {
             user.setPassword(passwordEncoder.encode(user.getPassword()));
         }
         user.setEncryptionSalt(UUID.randomUUID().toString());
+        user.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
         User saved = userRepository.save(user);
         saved.setPassword(null);
         return new ResponseEntity<>(saved, HttpStatus.CREATED);
@@ -129,6 +136,8 @@ public class UserController {
 
         if (userOpt.isPresent() && passwordEncoder.matches(password, userOpt.get().getPassword())) {
             User user = userOpt.get();
+            user.setLastLoginAt(LocalDateTime.now(ZoneOffset.UTC));
+            userRepository.save(user);
             String token = jwtUtil.generateToken(user.getEmail(), user.getRole());
 
             rateLimiter.recordSuccess(ip);
@@ -243,6 +252,7 @@ public class UserController {
         user.setPassword(passwordEncoder.encode(password));
         user.setRole("user");
         user.setEncryptionSalt(UUID.randomUUID().toString());
+        user.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
 
         User saved = userRepository.save(user);
         saved.setPassword(null);

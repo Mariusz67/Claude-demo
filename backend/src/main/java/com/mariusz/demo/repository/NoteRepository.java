@@ -18,4 +18,6 @@ public interface NoteRepository extends CrudRepository<Note, Long> {
 
     @Query("SELECT * FROM notes WHERE type = 'reminder' AND (frequency != 'never' OR reminder_at IS NOT NULL)")
     List<Note> findAllActiveReminders();
+
+    long countByUserEmail(String userEmail);
 }
