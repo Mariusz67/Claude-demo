@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -164,6 +165,27 @@ public class NoteController {
         }
         noteRepository.deleteById(id);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+
+    // PUT bulk update note texts (for re-encryption on password change)
+    @PutMapping("/bulk-update-text")
+    public ResponseEntity<HttpStatus> bulkUpdateText(@RequestBody List<Map<String, String>> updates) {
+        String currentEmail = getCurrentUserEmail();
+        for (Map<String, String> entry : updates) {
+            Long id = Long.parseLong(entry.get("id"));
+            String newText = entry.get("text");
+            Optional<Note> noteOpt = noteRepository.findById(id);
+            if (noteOpt.isEmpty() || !noteOpt.get().getUserEmail().equals(currentEmail)) {
+                return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+            }
+            if (newText != null && newText.length() > 10000) {
+                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+            }
+            Note note = noteOpt.get();
+            note.setText(newText);
+            noteRepository.save(note);
+        }
+        return new ResponseEntity<>(HttpStatus.OK);
     }
 
     private boolean isValidType(String type) {

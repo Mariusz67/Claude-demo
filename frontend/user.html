@@ -418,11 +418,17 @@
             <h1>User board of <span class="user-name" id="userName">User</span></h1>
             <div style="display: flex; gap: 10px; align-items: center;">
                 <button class="btn logout-btn" onclick="archiveNotes()">Archive</button>
+                <button class="btn logout-btn" onclick="toggleChangePassword()">Change Password</button>
                 <button class="btn logout-btn" onclick="logout()">Logout</button>
             </div>
         </div>
 
         <div id="message" class="message"></div>
+
+        <div style="background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 8px; padding: 10px 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; font-size: 0.88rem; color: #2e7d32;">
+            <span style="font-size: 1.2rem;">&#128274;</span>
+            <span>Your memos and reminders are <strong>end-to-end encrypted</strong>. Only you can read their content &mdash; not even the administrator has access.</span>
+        </div>
 
         <!-- Note Form -->
         <div class="note-form">
@@ -509,6 +515,30 @@
             </div>
         </div>
 
+        <!-- Change Password -->
+        <div class="note-form" id="changePasswordSection" style="display: none;">
+            <h2>Change Password</h2>
+            <p style="font-size: 0.85rem; color: #666; margin-bottom: 15px;">Your encrypted notes will be automatically re-encrypted with the new password.</p>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="oldPassword">Current password</label>
+                    <input type="password" id="oldPassword" placeholder="Enter current password" autocomplete="current-password">
+                </div>
+                <div class="form-group">
+                    <label for="newPasswordInput">New password</label>
+                    <input type="password" id="newPasswordInput" placeholder="Min. 8 characters" autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label for="confirmNewPassword">Confirm new password</label>
+                    <input type="password" id="confirmNewPassword" placeholder="Repeat new password" autocomplete="new-password">
+                </div>
+            </div>
+            <div class="form-buttons" style="display: flex;">
+                <button class="btn btn-primary" onclick="changePassword()">Change Password</button>
+                <button class="btn btn-secondary" onclick="toggleChangePassword()">Cancel</button>
+            </div>
+        </div>
+
         <!-- Notes List -->
         <div class="notes-section">
             <h2>My Notes</h2>
@@ -529,10 +559,75 @@
             : 'https://pretty-illumination-production.up.railway.app';
 
         const NOTES_URL = BASE_URL + '/api/notes';
+        const ENC_PREFIX = 'ENC:';
 
         let userEmail = '';
         let allNotes = [];
         let currentFilter = 'all';
+        let encKey = null;
+
+        // --- Client-side encryption (AES-256-GCM + PBKDF2) ---
+        async function deriveKey(password, salt) {
+            const enc = new TextEncoder();
+            const keyMaterial = await crypto.subtle.importKey(
+                'raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']
+            );
+            return crypto.subtle.deriveKey(
+                { name: 'PBKDF2', salt: enc.encode(salt), iterations: 600000, hash: 'SHA-256' },
+                keyMaterial,
+                { name: 'AES-GCM', length: 256 },
+                false,
+                ['encrypt', 'decrypt']
+            );
+        }
+
+        async function initEncryptionKey() {
+            const stored = sessionStorage.getItem('encKeyData');
+            if (!stored) {
+                sessionStorage.clear();
+                window.location.href = 'index.html';
+                return;
+            }
+            const { password, email } = JSON.parse(stored);
+            encKey = await deriveKey(password, 'memobee-e2e-' + email);
+        }
+
+        function arrayBufToBase64(buf) {
+            return btoa(String.fromCharCode(...new Uint8Array(buf)));
+        }
+
+        function base64ToArrayBuf(b64) {
+            const bin = atob(b64);
+            const buf = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+            return buf.buffer;
+        }
+
+        async function encryptText(plaintext) {
+            if (!encKey || !plaintext) return plaintext;
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const enc = new TextEncoder();
+            const ciphertext = await crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv }, encKey, enc.encode(plaintext)
+            );
+            return ENC_PREFIX + arrayBufToBase64(iv.buffer) + '.' + arrayBufToBase64(ciphertext);
+        }
+
+        async function decryptText(stored) {
+            if (!encKey || !stored || !stored.startsWith(ENC_PREFIX)) return stored;
+            try {
+                const payload = stored.slice(ENC_PREFIX.length);
+                const [ivB64, ctB64] = payload.split('.');
+                const iv = new Uint8Array(base64ToArrayBuf(ivB64));
+                const ciphertext = base64ToArrayBuf(ctB64);
+                const plainBuf = await crypto.subtle.decrypt(
+                    { name: 'AES-GCM', iv }, encKey, ciphertext
+                );
+                return new TextDecoder().decode(plainBuf);
+            } catch {
+                return '[Unable to decrypt — wrong password or corrupted data]';
+            }
+        }
 
         function authHeaders() {
             return { 'Authorization': 'Bearer ' + sessionStorage.getItem('token') };
@@ -580,7 +675,8 @@
             document.getElementById('reminderMinute').value = '00';
         }
 
-        loadNotes();
+        // Init encryption key, then load notes
+        initEncryptionKey().then(() => loadNotes());
 
         function selectType(type) {
             document.getElementById('noteType').value = type;
@@ -600,6 +696,20 @@
             document.getElementById('repeatInterval').classList.toggle('visible', checked);
         }
 
+        function showDecryptionWarning(count) {
+            const existing = document.getElementById('decryptWarning');
+            if (existing) existing.remove();
+            const div = document.createElement('div');
+            div.id = 'decryptWarning';
+            div.style.cssText = 'background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:0.88rem;color:#856404;';
+            div.innerHTML = '<strong>&#9888; Warning:</strong> ' + count + ' encrypted note(s) could not be decrypted. ' +
+                'This happens when your password was reset externally (e.g. via "Forgot Password"). ' +
+                'Those notes are permanently unreadable with your current password. You may delete them and create new ones.';
+            const container = document.querySelector('.container');
+            const noteForm = document.querySelector('.note-form');
+            container.insertBefore(div, noteForm);
+        }
+
         function showMessage(text, type) {
             const msg = document.getElementById('message');
             msg.textContent = text;
@@ -613,6 +723,17 @@
                 const response = await fetch(`${NOTES_URL}/user/${encodeURIComponent(userEmail)}`, { headers: authHeaders() });
                 if (response.ok) {
                     allNotes = await response.json();
+                    // Decrypt all note texts client-side
+                    let decryptFailed = 0;
+                    for (const note of allNotes) {
+                        note._decryptedText = await decryptText(note.text);
+                        if (note.text && note.text.startsWith(ENC_PREFIX) && note._decryptedText.startsWith('[Unable to decrypt')) {
+                            decryptFailed++;
+                        }
+                    }
+                    if (decryptFailed > 0) {
+                        showDecryptionWarning(decryptFailed);
+                    }
                     renderNotes();
                 } else {
                     showMessage('Failed to load notes', 'error');
@@ -670,7 +791,7 @@
                             <button class="btn btn-danger btn-small" onclick="deleteNote(${note.id})">Delete</button>
                         </div>
                     </div>
-                    <div class="note-text" id="text-${note.id}">${escapeHtml(note.text || '')}</div>
+                    <div class="note-text" id="text-${note.id}">${escapeHtml(note._decryptedText || '')}</div>
                     <button class="expand-btn" id="expand-${note.id}" onclick="toggleExpand(${note.id})" style="display:none;">&#9660; Show more</button>
                     ${note.attachmentName ? `<div class="note-attachment">Attachment: ${escapeHtml(note.attachmentName)}</div>` : ''}
                 </div>`;
@@ -763,7 +884,8 @@
                 return;
             }
 
-            const noteData = { userEmail, type, text };
+            const encryptedText = await encryptText(text);
+            const noteData = { userEmail, type, text: encryptedText };
 
             if (type === 'memo') {
                 noteData.frequency = document.getElementById('noteFrequency').value;
@@ -809,14 +931,14 @@
 
             if (type === 'memo') {
                 document.getElementById('noteFrequency').value = note.frequency || 'never';
-                document.getElementById('memoText').value = note.text || '';
+                document.getElementById('memoText').value = note._decryptedText || '';
             } else if (type === 'reminder') {
                 setPickerFromUTC(note.reminderAt);
                 document.getElementById('repeatUntilDeleted').checked = !!note.repeatUntilDeleted;
                 toggleRepeatInterval();
                 document.getElementById('repeatDays').value = note.repeatDays || 0;
                 document.getElementById('repeatHours').value = note.repeatHours || 0;
-                document.getElementById('reminderText').value = note.text || '';
+                document.getElementById('reminderText').value = note._decryptedText || '';
             }
 
             document.getElementById('formTitle').textContent = 'Edit Note';
@@ -861,6 +983,92 @@
             document.getElementById('formTitle').textContent = 'Add New Note';
         }
 
+        function toggleChangePassword() {
+            const section = document.getElementById('changePasswordSection');
+            section.style.display = section.style.display === 'none' ? 'block' : 'none';
+            document.getElementById('oldPassword').value = '';
+            document.getElementById('newPasswordInput').value = '';
+            document.getElementById('confirmNewPassword').value = '';
+        }
+
+        async function changePassword() {
+            const oldPwd = document.getElementById('oldPassword').value;
+            const newPwd = document.getElementById('newPasswordInput').value;
+            const confirmPwd = document.getElementById('confirmNewPassword').value;
+
+            if (!oldPwd || !newPwd || !confirmPwd) {
+                showMessage('All password fields are required', 'error');
+                return;
+            }
+            if (newPwd.length < 8) {
+                showMessage('New password must be at least 8 characters', 'error');
+                return;
+            }
+            if (newPwd !== confirmPwd) {
+                showMessage('New passwords do not match', 'error');
+                return;
+            }
+
+            try {
+                // 1. Re-encrypt all notes: decrypt with old key, encrypt with new key
+                const newKey = await deriveKey(newPwd, 'memobee-e2e-' + userEmail);
+                const bulkUpdates = [];
+
+                for (const note of allNotes) {
+                    if (!note.text || !note.text.startsWith(ENC_PREFIX)) continue;
+                    // note._decryptedText was already decrypted with old key at load time
+                    const plaintext = note._decryptedText;
+                    if (!plaintext || plaintext.startsWith('[Unable to decrypt')) continue;
+
+                    // Encrypt with new key
+                    const iv = crypto.getRandomValues(new Uint8Array(12));
+                    const enc = new TextEncoder();
+                    const ciphertext = await crypto.subtle.encrypt(
+                        { name: 'AES-GCM', iv }, newKey, enc.encode(plaintext)
+                    );
+                    const newEncText = ENC_PREFIX + arrayBufToBase64(iv.buffer) + '.' + arrayBufToBase64(ciphertext);
+                    bulkUpdates.push({ id: String(note.id), text: newEncText });
+                }
+
+                // 2. Send re-encrypted texts to server
+                if (bulkUpdates.length > 0) {
+                    const bulkResp = await fetch(NOTES_URL + '/bulk-update-text', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                        body: JSON.stringify(bulkUpdates)
+                    });
+                    if (!bulkResp.ok) {
+                        showMessage('Failed to re-encrypt notes. Password not changed.', 'error');
+                        return;
+                    }
+                }
+
+                // 3. Change password on server
+                const resp = await fetch(BASE_URL + '/api/users/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                    body: JSON.stringify({ email: userEmail, oldPassword: oldPwd, newPassword: newPwd })
+                });
+                const data = await resp.json();
+
+                if (!resp.ok || !data.success) {
+                    showMessage(data.message || 'Failed to change password', 'error');
+                    return;
+                }
+
+                // 4. Update session with new token and new encryption key
+                sessionStorage.setItem('token', data.token);
+                sessionStorage.setItem('encKeyData', JSON.stringify({ password: newPwd, email: userEmail }));
+                encKey = newKey;
+
+                toggleChangePassword();
+                showMessage('Password changed and notes re-encrypted successfully', 'success');
+                loadNotes();
+            } catch (error) {
+                showMessage('Error changing password: ' + error.message, 'error');
+            }
+        }
+
         function archiveNotes() {
             if (allNotes.length === 0) {
                 showMessage('No notes to archive', 'error');
@@ -884,7 +1092,7 @@
                     lines.push('');
                     lines.push('[' + (i + 1) + '] ' + (note.frequency && note.frequency !== 'never' ? '(' + note.frequency + ')' : ''));
                     lines.push('Created: ' + formatDate(note.createdAt));
-                    lines.push(note.text || '');
+                    lines.push(note._decryptedText || '');
                     if (note.attachmentName) lines.push('Attachment: ' + note.attachmentName);
                 });
             }
@@ -903,7 +1111,7 @@
                         lines.push('Repeats every: ' + (parts.length ? parts.join(' ') : '—'));
                     }
                     lines.push('Created: ' + formatDate(note.createdAt));
-                    lines.push(note.text || '');
+                    lines.push(note._decryptedText || '');
                     if (note.attachmentName) lines.push('Attachment: ' + note.attachmentName);
                 });
             }

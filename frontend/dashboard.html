@@ -202,9 +202,9 @@
                         <label for="userEmail">Email:</label>
                         <input type="email" id="userEmail" required placeholder="Enter email address">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="passwordGroup">
                         <label for="userPassword">Password:</label>
-                        <input type="password" id="userPassword" placeholder="Leave empty to keep current password">
+                        <input type="password" id="userPassword" placeholder="Set initial password">
                     </div>
                     <button type="submit" class="btn" id="submitBtn">Create User</button>
                     <button type="button" class="btn" onclick="resetForm()" style="background: #95a5a6;">Cancel</button>
@@ -368,10 +368,8 @@
                 email: userEmail
             };
 
-            if (userPassword) {
-                userData.password = userPassword;
-            } else if (!userId) {
-                userData.password = '1234';
+            if (!userId) {
+                userData.password = userPassword || '1234';
             }
 
             statusEl.style.display = 'inline-block';
@@ -410,6 +408,7 @@
             document.getElementById('userName').value = name;
             document.getElementById('userEmail').value = email;
             document.getElementById('userPassword').value = '';
+            document.getElementById('passwordGroup').style.display = 'none';
             document.getElementById('submitBtn').textContent = 'Update User';
 
             document.getElementById('userForm').scrollIntoView({ behavior: 'smooth' });
@@ -452,6 +451,7 @@
             document.getElementById('userName').value = '';
             document.getElementById('userEmail').value = '';
             document.getElementById('userPassword').value = '';
+            document.getElementById('passwordGroup').style.display = '';
             document.getElementById('submitBtn').textContent = 'Create User';
         }
 

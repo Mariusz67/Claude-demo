@@ -372,6 +372,7 @@
                     sessionStorage.setItem('userEmail', email);
                     sessionStorage.setItem('userRole', data.role);
                     sessionStorage.setItem('userName', data.user.name);
+                    sessionStorage.setItem('encKeyData', JSON.stringify({ password, email }));
 
                     // Redirect based on role
                     if (data.role === 'admin') {

@@ -95,9 +95,6 @@ public class UserController {
             User user = userData.get();
             user.setName(userDetails.getName());
             user.setEmail(userDetails.getEmail());
-            if (userDetails.getPassword() != null && !userDetails.getPassword().isEmpty()) {
-                user.setPassword(passwordEncoder.encode(userDetails.getPassword()));
-            }
             User saved = userRepository.save(user);
             saved.setPassword(null);
             return new ResponseEntity<>(saved, HttpStatus.OK);
@@ -171,31 +168,41 @@ public class UserController {
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
-    // PUT reset password - admin sets new password without knowing old one
-    @PutMapping("/{id}/reset-password")
-    public ResponseEntity<Map<String, Object>> resetPassword(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    // POST change password (authenticated user, requires old password)
+    @PostMapping("/change-password")
+    public ResponseEntity<Map<String, Object>> changePassword(@RequestBody Map<String, String> body) {
         Map<String, Object> response = new HashMap<>();
+        String email = body.get("email");
+        String oldPassword = body.get("oldPassword");
         String newPassword = body.get("newPassword");
 
-        if (newPassword == null || newPassword.isEmpty()) {
+        if (email == null || oldPassword == null || newPassword == null) {
             response.put("success", false);
-            response.put("message", "newPassword is required");
+            response.put("message", "Email, old password and new password are required");
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
 
-        Optional<User> userOpt = userRepository.findById(id);
-        if (userOpt.isEmpty()) {
+        if (newPassword.length() < 8) {
             response.put("success", false);
-            response.put("message", "User not found");
-            return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+            response.put("message", "New password must be at least 8 characters");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty() || !passwordEncoder.matches(oldPassword, userOpt.get().getPassword())) {
+            response.put("success", false);
+            response.put("message", "Current password is incorrect");
+            return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
         }
 
         User user = userOpt.get();
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
 
+        String token = jwtUtil.generateToken(user.getEmail(), user.getRole());
         response.put("success", true);
-        response.put("message", "Password reset successfully for: " + user.getEmail());
+        response.put("message", "Password changed successfully");
+        response.put("token", token);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
