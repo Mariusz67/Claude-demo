@@ -35,6 +35,8 @@ ALTER TABLE notes ADD COLUMN IF NOT EXISTS repeat_quarters INTEGER DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS encryption_salt VARCHAR(255);
 
 -- Note title (plaintext, used in reminder emails instead of encrypted body)
+-- Note: in PostgreSQL column order cannot be changed after creation;
+-- logically title sits between type and text.
 ALTER TABLE notes ADD COLUMN IF NOT EXISTS title VARCHAR(255);
 
 -- User activity tracking
