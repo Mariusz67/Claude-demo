@@ -2,6 +2,7 @@ package com.mariusz.demo.config;
 
 import com.mariusz.demo.model.User;
 import com.mariusz.demo.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,12 @@ public class AdminSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
 
+    @Value("${ADMIN_EMAIL:}")
+    private String email;
+
+    @Value("${ADMIN_PASSWORD:}")
+    private String password;
+
     public AdminSeeder(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -23,8 +30,6 @@ public class AdminSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        String email = System.getenv("ADMIN_EMAIL");
-        String password = System.getenv("ADMIN_PASSWORD");
 
         if (email == null || email.isBlank() || password == null || password.isBlank()) {
             return;
