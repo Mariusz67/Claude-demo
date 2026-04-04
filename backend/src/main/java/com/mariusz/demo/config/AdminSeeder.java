@@ -30,8 +30,11 @@ public class AdminSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        System.out.println("AdminSeeder: ADMIN_EMAIL=" + (email == null ? "null" : email.isBlank() ? "(blank)" : email));
+        System.out.println("AdminSeeder: ADMIN_PASSWORD=" + (password == null ? "null" : password.isBlank() ? "(blank)" : "(set)"));
 
         if (email == null || email.isBlank() || password == null || password.isBlank()) {
+            System.out.println("AdminSeeder: skipping — missing credentials");
             return;
         }
 
