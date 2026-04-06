@@ -364,6 +364,51 @@
             -webkit-line-clamp: unset;
         }
 
+        /* Speech-to-text mic button */
+        .mic-btn {
+            background: none;
+            border: 1px solid #ccc;
+            border-radius: 50%;
+            width: 34px;
+            height: 34px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            vertical-align: middle;
+            margin-left: 6px;
+            flex-shrink: 0;
+        }
+
+        .mic-btn:hover {
+            background: #f0f0f0;
+            border-color: #999;
+        }
+
+        .mic-btn.recording {
+            background: #ff4444;
+            border-color: #ff4444;
+            color: white;
+            animation: pulse 1s infinite;
+        }
+
+        .mic-btn.unsupported {
+            display: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .label-with-mic {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
         .expand-btn {
             background: none;
             border: none;
@@ -410,6 +455,54 @@
             background: #f8d7da;
             color: #721c24;
         }
+
+        /* Mobile responsiveness */
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+                margin: 10px;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .header h1 {
+                font-size: 1.3rem;
+            }
+
+            .header > div {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+
+            .header .btn {
+                flex: 1;
+                min-width: 0;
+                text-align: center;
+                font-size: 0.8rem;
+                padding: 8px 10px;
+            }
+
+            .form-row {
+                flex-direction: column;
+            }
+
+            .form-group {
+                min-width: 0;
+            }
+
+            .note-header {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .note-actions {
+                align-self: flex-end;
+            }
+        }
     </style>
 </head>
 <body>
@@ -452,7 +545,10 @@
             <div class="type-fields" id="memoFields">
                 <div class="form-row">
                     <div class="form-group" style="flex:2;">
-                        <label for="memoTitle">Title</label>
+                        <div class="label-with-mic">
+                            <label for="memoTitle">Title</label>
+                            <button type="button" class="mic-btn" onclick="toggleDictation('memoTitle', this)" title="Dictate">🎤</button>
+                        </div>
                         <input type="text" id="memoTitle" maxlength="255" placeholder="Enter a title...">
                     </div>
                     <div class="form-group">
@@ -469,7 +565,10 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group full-width">
-                        <label for="memoText">Text (max 10000 characters)</label>
+                        <div class="label-with-mic">
+                            <label for="memoText">Text (max 10000 characters)</label>
+                            <button type="button" class="mic-btn" onclick="toggleDictation('memoText', this)" title="Dictate">🎤</button>
+                        </div>
                         <textarea id="memoText" maxlength="10000" placeholder="Enter your memo text..."></textarea>
                     </div>
                 </div>
@@ -479,7 +578,10 @@
             <div class="type-fields" id="reminderFields">
                 <div class="form-row">
                     <div class="form-group full-width">
-                        <label for="reminderTitle">Title (sent in reminder email)</label>
+                        <div class="label-with-mic">
+                            <label for="reminderTitle">Title (sent in reminder email)</label>
+                            <button type="button" class="mic-btn" onclick="toggleDictation('reminderTitle', this)" title="Dictate">🎤</button>
+                        </div>
                         <input type="text" id="reminderTitle" maxlength="255" placeholder="Enter a title — this is what you'll see in the email...">
                     </div>
                 </div>
@@ -513,7 +615,10 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group full-width">
-                        <label for="reminderText">Text (max 10000 characters)</label>
+                        <div class="label-with-mic">
+                            <label for="reminderText">Text (max 10000 characters)</label>
+                            <button type="button" class="mic-btn" onclick="toggleDictation('reminderText', this)" title="Dictate">🎤</button>
+                        </div>
                         <textarea id="reminderText" maxlength="10000" placeholder="Enter your reminder text..."></textarea>
                     </div>
                 </div>
@@ -1100,6 +1205,82 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             showMessage('Archive downloaded', 'success');
+        }
+
+        // --- Speech-to-text dictation ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const activeRecognitions = new Map();
+
+        if (!SpeechRecognition) {
+            document.addEventListener('DOMContentLoaded', () => {
+                document.querySelectorAll('.mic-btn').forEach(btn => {
+                    btn.classList.add('unsupported');
+                    btn.disabled = true;
+                    btn.title = 'Speech recognition is not supported in this browser';
+                });
+            });
+        }
+
+        function toggleDictation(fieldId, btn) {
+            if (!SpeechRecognition) return;
+
+            // If already recording for this field, stop it
+            if (activeRecognitions.has(fieldId)) {
+                activeRecognitions.get(fieldId).stop();
+                return;
+            }
+
+            // Stop any other active recognition
+            activeRecognitions.forEach((rec, id) => {
+                rec.stop();
+            });
+
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'pl-PL';
+            recognition.continuous = true;
+            recognition.interimResults = true;
+
+            const field = document.getElementById(fieldId);
+            const baseText = field.value;
+
+            recognition.onstart = () => {
+                btn.classList.add('recording');
+                activeRecognitions.set(fieldId, recognition);
+            };
+
+            recognition.onresult = (event) => {
+                let finalTranscript = '';
+                let interimTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript;
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+                const separator = baseText && !baseText.endsWith(' ') ? ' ' : '';
+                field.value = baseText + separator + finalTranscript + interimTranscript;
+            };
+
+            recognition.onend = () => {
+                btn.classList.remove('recording');
+                activeRecognitions.delete(fieldId);
+                // Commit only final text
+                const currentVal = field.value;
+                const finalOnly = currentVal.replace(/\s+$/, '');
+                field.value = finalOnly;
+            };
+
+            recognition.onerror = (event) => {
+                btn.classList.remove('recording');
+                activeRecognitions.delete(fieldId);
+                if (event.error !== 'aborted') {
+                    showMessage('Microphone error: ' + event.error, 'error');
+                }
+            };
+
+            recognition.start();
         }
 
         function logout() {
