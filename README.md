@@ -1,6 +1,6 @@
-# Demo Full-Stack Application
+# MemoBee
 
-A production-ready full-stack web application demonstrating modern development practices with automated quality gates and cloud deployment.
+A full-stack web application for managing memos and reminders with end-to-end encryption, email notifications, and speech-to-text dictation.
 
 ## 🚀 Live Demo
 
@@ -515,7 +515,11 @@ Note text is encrypted client-side before being sent to the server. The database
 
 ## 📄 License
 
-This project is open source and available for educational purposes.
+Copyright (c) 2026 Mariusz Puto. All rights reserved.
+
+This source code is published for portfolio and demonstration purposes only.
+No part of this repository may be reproduced, copied, modified, distributed,
+or used without prior written permission from the author. See [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
