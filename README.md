@@ -2,9 +2,9 @@
 
 A full-stack web application for managing memos and reminders with end-to-end encryption, email notifications, and speech-to-text dictation.
 
-## 🚀 Live Demo
+## 🚀 Live
 
-- **Frontend**: [Your Railway Frontend URL]
+- **Frontend**: https://memobee-production.up.railway.app
 - **Backend API**: https://pretty-illumination-production.up.railway.app
 - **Health Check**: https://pretty-illumination-production.up.railway.app/api/users/health
 
@@ -87,7 +87,7 @@ A full-stack web application for managing memos and reminders with end-to-end en
 ## 📁 Project Structure
 
 ```
-Claude demo/
+Memobee/
 ├── backend/
 │   ├── src/
 │   │   ├── main/
@@ -152,7 +152,7 @@ Claude demo/
 1. **Clone the repository**
    ```bash
    git clone <your-repo-url>
-   cd "Claude demo/backend"
+   cd "Memobee/backend"
    ```
 
 2. **Configure local database**
